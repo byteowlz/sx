@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -27,6 +29,9 @@ type SearchOptions struct {
 	Lucky      bool
 	NoPrompt   bool
 	Unsafe     bool
+	LinksOnly  bool
+	OutputFile string
+	Top        bool
 }
 
 func printResults(results []SearchResult, count int, startAt int, expand bool, noColor bool) {
@@ -342,5 +347,62 @@ func printJSONResults(results []SearchResult) error {
 		return err
 	}
 	fmt.Println(string(jsonData))
+	return nil
+}
+
+func printLinksOnly(results []SearchResult, outputFile string) error {
+	var output io.Writer = os.Stdout
+
+	if outputFile != "" {
+		file, err := os.Create(outputFile)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %v", err)
+		}
+		defer file.Close()
+		output = file
+	}
+
+	for _, result := range results {
+		if result.URL != "" {
+			fmt.Fprintln(output, result.URL)
+		}
+	}
+
+	return nil
+}
+
+func printJSONToFile(results []SearchResult, outputFile string) error {
+	file, err := os.Create(outputFile)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %v", err)
+	}
+	defer file.Close()
+
+	jsonData, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(jsonData)
+	return err
+}
+
+func printResultsToFile(results []SearchResult, count int, startAt int, expand bool, noColor bool, outputFile string) error {
+	file, err := os.Create(outputFile)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %v", err)
+	}
+	defer file.Close()
+
+	// Redirect stdout temporarily to file
+	oldStdout := os.Stdout
+	os.Stdout = file
+
+	// Always disable color for file output
+	printResults(results, count, startAt, expand, true)
+
+	// Restore stdout
+	os.Stdout = oldStdout
+
 	return nil
 }

@@ -57,6 +57,9 @@ func main() {
 	rootCmd.Flags().StringVarP(&searchOpts.TimeRange, "time-range", "t", "", "search results within a specific time range (day, week, month, year)")
 	rootCmd.Flags().BoolVar(&searchOpts.Unsafe, "unsafe", false, "allow unsafe search results")
 	rootCmd.Flags().BoolVar(&config.Debug, "debug", config.Debug, "show debug output")
+	rootCmd.Flags().BoolVarP(&searchOpts.LinksOnly, "links-only", "L", false, "output only URLs, one per line")
+	rootCmd.Flags().StringVarP(&searchOpts.OutputFile, "output", "o", "", "save output to file")
+	rootCmd.Flags().BoolVar(&searchOpts.Top, "top", false, "show only the top result")
 
 	// Category shortcuts
 	var files, music, news, social, videos bool
@@ -72,9 +75,25 @@ func main() {
 }
 
 func runSearch(cmd *cobra.Command, args []string) {
-	if len(args) == 0 {
+	var query string
+
+	// Check for piped input
+	if isPipeInput() {
+		input, err := readFromStdin()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading from stdin: %v\n", err)
+			return
+		}
+		query = strings.TrimSpace(input)
+		if query == "" {
+			fmt.Fprintf(os.Stderr, "Error: empty input from stdin\n")
+			return
+		}
+	} else if len(args) == 0 {
 		cmd.Help()
 		return
+	} else {
+		query = strings.Join(args, " ")
 	}
 
 	// Ensure config file exists for actual searches
@@ -82,8 +101,6 @@ func runSearch(cmd *cobra.Command, args []string) {
 		fmt.Fprintf(os.Stderr, "Error creating config: %v\n", err)
 		return
 	}
-
-	query := strings.Join(args, " ")
 
 	// Handle category shortcuts
 	if files, _ := cmd.Flags().GetBool("files"); files {
@@ -105,6 +122,12 @@ func runSearch(cmd *cobra.Command, args []string) {
 	// Handle unsafe flag
 	if searchOpts.Unsafe {
 		searchOpts.SafeSearch = "none"
+	}
+
+	// Handle top flag - show only first result and disable prompt
+	if searchOpts.Top {
+		config.ResultCount = 1
+		searchOpts.NoPrompt = true
 	}
 
 	// Validate config
@@ -166,10 +189,32 @@ func runSearch(cmd *cobra.Command, args []string) {
 			return
 		}
 
-		// Handle JSON output
+		// Handle special output formats
 		if searchOpts.JSON {
-			if err := printJSONResults(allResults); err != nil {
-				fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+			if searchOpts.OutputFile != "" {
+				if err := printJSONToFile(allResults, searchOpts.OutputFile); err != nil {
+					fmt.Fprintf(os.Stderr, "Error writing JSON to file: %v\n", err)
+				}
+			} else {
+				if err := printJSONResults(allResults); err != nil {
+					fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+				}
+			}
+			return
+		}
+
+		if searchOpts.LinksOnly {
+			count := config.ResultCount
+			if count == 0 {
+				count = len(allResults)
+			}
+			end := startAt + count
+			if end > len(allResults) {
+				end = len(allResults)
+			}
+			linksResults := allResults[startAt:end]
+			if err := printLinksOnly(linksResults, searchOpts.OutputFile); err != nil {
+				fmt.Fprintf(os.Stderr, "Error outputting links: %v\n", err)
 			}
 			return
 		}
@@ -195,7 +240,14 @@ func runSearch(cmd *cobra.Command, args []string) {
 		if count == 0 {
 			count = len(allResults)
 		}
-		printResults(allResults, count, startAt, searchOpts.Expand, config.NoColor)
+
+		if searchOpts.OutputFile != "" {
+			if err := printResultsToFile(allResults, count, startAt, searchOpts.Expand, config.NoColor, searchOpts.OutputFile); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing results to file: %v\n", err)
+			}
+		} else {
+			printResults(allResults, count, startAt, searchOpts.Expand, config.NoColor)
+		}
 
 		// Exit if no prompt requested
 		if searchOpts.NoPrompt {
@@ -356,4 +408,24 @@ func openURL(url string) error {
 	}
 
 	return cmd.Start()
+}
+
+func isPipeInput() bool {
+	fileInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return fileInfo.Mode()&os.ModeCharDevice == 0
+}
+
+func readFromStdin() (string, error) {
+	var input strings.Builder
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if input.Len() > 0 {
+			input.WriteString(" ")
+		}
+		input.WriteString(scanner.Text())
+	}
+	return input.String(), scanner.Err()
 }
