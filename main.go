@@ -49,7 +49,7 @@ func main() {
 	rootCmd.Flags().BoolVar(&searchOpts.Lucky, "lucky", false, "opens a random result in web browser and exit")
 	rootCmd.Flags().BoolVar(&config.NoVerifySSL, "no-verify-ssl", config.NoVerifySSL, "do not verify SSL certificates")
 	rootCmd.Flags().BoolVar(&config.NoColor, "nocolor", config.NoColor, "disable colored output")
-	rootCmd.Flags().BoolVar(&searchOpts.NoPrompt, "np", false, "just search and exit, do not prompt")
+	rootCmd.Flags().BoolVarP(&searchOpts.NoPrompt, "np", "p", false, "just search and exit, do not prompt")
 	rootCmd.Flags().BoolVar(&config.NoUserAgent, "noua", config.NoUserAgent, "disable user agent")
 	rootCmd.Flags().IntVarP(&config.ResultCount, "num", "n", config.ResultCount, "show N results per page")
 	rootCmd.Flags().StringVar(&searchOpts.SafeSearch, "safe-search", config.SafeSearch, "filter results for safe search (none, moderate, strict)")
