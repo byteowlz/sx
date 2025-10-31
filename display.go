@@ -32,9 +32,10 @@ type SearchOptions struct {
 	LinksOnly  bool
 	OutputFile string
 	Top        bool
+	Clean      bool
 }
 
-func printResults(results []SearchResult, count int, startAt int, expand bool, noColor bool) {
+func printResults(results []SearchResult, count int, startAt int, expand bool, noColor bool, query string) {
 	if noColor {
 		color.NoColor = true
 	}
@@ -44,6 +45,11 @@ func printResults(results []SearchResult, count int, startAt int, expand bool, n
 	yellow := color.New(color.FgYellow)
 	dim := color.New(color.FgHiBlack)
 
+	fmt.Println()
+
+	// Display the query at the top
+	bold := color.New(color.FgWhite, color.Bold)
+	fmt.Printf("Query: %s\n\n", bold.Sprint(query))
 	fmt.Println()
 
 	end := startAt + count
@@ -341,8 +347,109 @@ func printEngines(result SearchResult, dim *color.Color) {
 	}
 }
 
-func printJSONResults(results []SearchResult) error {
-	jsonData, err := json.MarshalIndent(results, "", "  ")
+func cleanSearchResult(result SearchResult) map[string]interface{} {
+	cleaned := make(map[string]interface{})
+
+	if result.Title != "" {
+		cleaned["title"] = result.Title
+	}
+	if result.URL != "" {
+		cleaned["url"] = result.URL
+	}
+	if result.Content != "" {
+		cleaned["content"] = result.Content
+	}
+	if result.Engine != "" {
+		cleaned["engine"] = result.Engine
+	}
+	if len(result.Engines) > 0 {
+		cleaned["engines"] = result.Engines
+	}
+	if result.Category != "" {
+		cleaned["category"] = result.Category
+	}
+	if result.Template != "" {
+		cleaned["template"] = result.Template
+	}
+	if result.PublishedDate != "" {
+		cleaned["publishedDate"] = result.PublishedDate
+	}
+	if result.Author != "" {
+		cleaned["author"] = result.Author
+	}
+	if result.Length != nil {
+		cleaned["length"] = result.Length
+	}
+	if result.Source != "" {
+		cleaned["source"] = result.Source
+	}
+	if result.Resolution != "" {
+		cleaned["resolution"] = result.Resolution
+	}
+	if result.ImgSrc != "" {
+		cleaned["img_src"] = result.ImgSrc
+	}
+	if len(result.Address) > 0 {
+		cleaned["address"] = result.Address
+	}
+	if result.Longitude != 0 {
+		cleaned["longitude"] = result.Longitude
+	}
+	if result.Latitude != 0 {
+		cleaned["latitude"] = result.Latitude
+	}
+	if result.Journal != "" {
+		cleaned["journal"] = result.Journal
+	}
+	if result.Publisher != "" {
+		cleaned["publisher"] = result.Publisher
+	}
+	if result.MagnetLink != "" {
+		cleaned["magnetlink"] = result.MagnetLink
+	}
+	if result.Seed != 0 {
+		cleaned["seed"] = result.Seed
+	}
+	if result.Leech != 0 {
+		cleaned["leech"] = result.Leech
+	}
+	if result.FileSize != "" {
+		cleaned["filesize"] = result.FileSize
+	}
+	if result.Size != "" {
+		cleaned["size"] = result.Size
+	}
+	if result.Metadata != "" {
+		cleaned["metadata"] = result.Metadata
+	}
+
+	return cleaned
+}
+
+func printJSONResults(results []SearchResult, query string) error {
+	output := map[string]interface{}{
+		"query":   query,
+		"results": results,
+	}
+	jsonData, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(jsonData))
+	return nil
+}
+
+func printJSONResultsClean(results []SearchResult, query string) error {
+	cleanedResults := make([]map[string]interface{}, len(results))
+	for i, result := range results {
+		cleanedResults[i] = cleanSearchResult(result)
+	}
+
+	output := map[string]interface{}{
+		"query":   query,
+		"results": cleanedResults,
+	}
+	jsonData, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -371,14 +478,32 @@ func printLinksOnly(results []SearchResult, outputFile string) error {
 	return nil
 }
 
-func printJSONToFile(results []SearchResult, outputFile string) error {
+func printJSONToFile(results []SearchResult, outputFile string, query string, clean bool) error {
 	file, err := os.Create(outputFile)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %v", err)
 	}
 	defer file.Close()
 
-	jsonData, err := json.MarshalIndent(results, "", "  ")
+	var output map[string]interface{}
+
+	if clean {
+		cleanedResults := make([]map[string]interface{}, len(results))
+		for i, result := range results {
+			cleanedResults[i] = cleanSearchResult(result)
+		}
+		output = map[string]interface{}{
+			"query":   query,
+			"results": cleanedResults,
+		}
+	} else {
+		output = map[string]interface{}{
+			"query":   query,
+			"results": results,
+		}
+	}
+
+	jsonData, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -387,7 +512,7 @@ func printJSONToFile(results []SearchResult, outputFile string) error {
 	return err
 }
 
-func printResultsToFile(results []SearchResult, count int, startAt int, expand bool, noColor bool, outputFile string) error {
+func printResultsToFile(results []SearchResult, count int, startAt int, expand bool, noColor bool, query string, outputFile string) error {
 	file, err := os.Create(outputFile)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %v", err)
@@ -399,7 +524,7 @@ func printResultsToFile(results []SearchResult, count int, startAt int, expand b
 	os.Stdout = file
 
 	// Always disable color for file output
-	printResults(results, count, startAt, expand, true)
+	printResults(results, count, startAt, expand, true, query)
 
 	// Restore stdout
 	os.Stdout = oldStdout

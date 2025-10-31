@@ -38,8 +38,9 @@ func main() {
 
 	// Add flags
 	rootCmd.Flags().StringVar(&config.SearxngURL, "searxng-url", config.SearxngURL, "SearXNG instance URL")
-	rootCmd.Flags().StringSliceVarP(&searchOpts.Categories, "categories", "c", nil, fmt.Sprintf("list of categories to search in: %s", strings.Join(searxngCategories, ", ")))
+	rootCmd.Flags().StringSliceVar(&searchOpts.Categories, "categories", nil, fmt.Sprintf("list of categories to search in: %s", strings.Join(searxngCategories, ", ")))
 	rootCmd.Flags().BoolVar(&searchOpts.JSON, "json", false, "output search results in JSON format")
+	rootCmd.Flags().BoolVarP(&searchOpts.Clean, "clean", "c", false, "omit empty and null values in JSON output")
 	rootCmd.Flags().StringSliceVarP(&searchOpts.Engines, "engines", "e", nil, "list of engines to use for search")
 	rootCmd.Flags().BoolVarP(&searchOpts.Expand, "expand", "x", config.Expand, "show complete URL in search results")
 	rootCmd.Flags().BoolVarP(&searchOpts.First, "first", "j", false, "open the first result in web browser and exit")
@@ -192,12 +193,18 @@ func runSearch(cmd *cobra.Command, args []string) {
 		// Handle special output formats
 		if searchOpts.JSON {
 			if searchOpts.OutputFile != "" {
-				if err := printJSONToFile(allResults, searchOpts.OutputFile); err != nil {
+				if err := printJSONToFile(allResults, searchOpts.OutputFile, query, searchOpts.Clean); err != nil {
 					fmt.Fprintf(os.Stderr, "Error writing JSON to file: %v\n", err)
 				}
 			} else {
-				if err := printJSONResults(allResults); err != nil {
-					fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+				if searchOpts.Clean {
+					if err := printJSONResultsClean(allResults, query); err != nil {
+						fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+					}
+				} else {
+					if err := printJSONResults(allResults, query); err != nil {
+						fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+					}
 				}
 			}
 			return
@@ -242,11 +249,11 @@ func runSearch(cmd *cobra.Command, args []string) {
 		}
 
 		if searchOpts.OutputFile != "" {
-			if err := printResultsToFile(allResults, count, startAt, searchOpts.Expand, config.NoColor, searchOpts.OutputFile); err != nil {
+			if err := printResultsToFile(allResults, count, startAt, searchOpts.Expand, config.NoColor, query, searchOpts.OutputFile); err != nil {
 				fmt.Fprintf(os.Stderr, "Error writing results to file: %v\n", err)
 			}
 		} else {
-			printResults(allResults, count, startAt, searchOpts.Expand, config.NoColor)
+			printResults(allResults, count, startAt, searchOpts.Expand, config.NoColor, query)
 		}
 
 		// Exit if no prompt requested
@@ -287,7 +294,7 @@ func handleInteractiveSession(query *string, allResults *[]SearchResult, startAt
 				opts.PageNo++
 				return true // Need to fetch more results
 			}
-			printResults(*allResults, config.ResultCount, *startAt, opts.Expand, config.NoColor)
+			printResults(*allResults, config.ResultCount, *startAt, opts.Expand, config.NoColor, *query)
 			continue
 
 		case input == "p": // Previous page
@@ -295,17 +302,17 @@ func handleInteractiveSession(query *string, allResults *[]SearchResult, startAt
 			if *startAt < 0 {
 				*startAt = 0
 			}
-			printResults(*allResults, config.ResultCount, *startAt, opts.Expand, config.NoColor)
+			printResults(*allResults, config.ResultCount, *startAt, opts.Expand, config.NoColor, *query)
 			continue
 
 		case input == "f": // First page
 			*startAt = 0
-			printResults(*allResults, config.ResultCount, *startAt, opts.Expand, config.NoColor)
+			printResults(*allResults, config.ResultCount, *startAt, opts.Expand, config.NoColor, *query)
 			continue
 
 		case input == "x": // Toggle expand URLs
 			opts.Expand = !opts.Expand
-			printResults(*allResults, config.ResultCount, *startAt, opts.Expand, config.NoColor)
+			printResults(*allResults, config.ResultCount, *startAt, opts.Expand, config.NoColor, *query)
 			continue
 
 		case input == "d": // Toggle debug
@@ -348,8 +355,14 @@ func handleInteractiveSession(query *string, allResults *[]SearchResult, startAt
 			indexStr := strings.TrimSpace(input[2:])
 			if index, err := strconv.Atoi(indexStr); err == nil && index > 0 && index <= len(*allResults) {
 				result := (*allResults)[index-1]
-				if err := printJSONResults([]SearchResult{result}); err != nil {
-					fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+				if opts.Clean {
+					if err := printJSONResultsClean([]SearchResult{result}, *query); err != nil {
+						fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+					}
+				} else {
+					if err := printJSONResults([]SearchResult{result}, *query); err != nil {
+						fmt.Fprintf(os.Stderr, "Error formatting JSON: %v\n", err)
+					}
 				}
 			}
 			continue
