@@ -1,19 +1,42 @@
 package main
 
 import (
+	"compress/gzip"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
+	"math/rand"
+	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/fatih/color"
+	"github.com/go-shiori/go-readability"
 )
 
 const maxContentWords = 128
+
+// Common realistic user agents to rotate through
+var userAgents = []string{
+	// Chrome on Windows
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+	// Chrome on macOS
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+	// Firefox on Windows
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+	// Firefox on macOS
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0",
+	// Safari on macOS
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+	// Edge on Windows
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+}
 
 type SearchOptions struct {
 	Categories []string
@@ -33,6 +56,8 @@ type SearchOptions struct {
 	OutputFile string
 	Top        bool
 	Clean      bool
+	TextOnly   bool
+	HTMLOnly   bool
 }
 
 func printResults(results []SearchResult, count int, startAt int, expand bool, noColor bool, query string) {
@@ -318,6 +343,137 @@ func parseDate(dateStr string) *time.Time {
 	return nil
 }
 
+// getRandomUserAgent returns a random user agent from the pool
+func getRandomUserAgent() string {
+	return userAgents[rand.Intn(len(userAgents))]
+}
+
+// setupHTTPClient creates an HTTP client with anti-bot detection features
+func setupHTTPClient(config *Config) *http.Client {
+	client := &http.Client{
+		Timeout: time.Duration(config.Timeout) * time.Second,
+	}
+
+	if config.NoVerifySSL {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client.Transport = tr
+	}
+
+	return client
+}
+
+// setupHTTPRequest creates an HTTP request with realistic browser headers
+func setupHTTPRequest(method, url string, config *Config) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use random user agent unless disabled
+	if !config.NoUserAgent {
+		req.Header.Set("User-Agent", getRandomUserAgent())
+	}
+
+	// Add common browser headers to appear more legitimate
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Set("DNT", "1")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req.Header.Set("Sec-Fetch-Dest", "document")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "none")
+	req.Header.Set("Sec-Fetch-User", "?1")
+	req.Header.Set("Cache-Control", "max-age=0")
+
+	return req, nil
+}
+
+func printHTMLOnly(results []SearchResult, outputFile string, config *Config) error {
+	var output io.Writer = os.Stdout
+
+	if outputFile != "" {
+		file, err := os.Create(outputFile)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %v", err)
+		}
+		defer file.Close()
+		output = file
+	}
+
+	client := setupHTTPClient(config)
+
+	for i, result := range results {
+		if result.URL == "" {
+			continue
+		}
+
+		// Add random delay between requests (100-500ms) to appear more human
+		if i > 0 {
+			delay := time.Duration(100+rand.Intn(400)) * time.Millisecond
+			time.Sleep(delay)
+		}
+
+		// Print separator and metadata
+		if i > 0 {
+			fmt.Fprintln(output, "\n"+strings.Repeat("=", 80))
+		}
+		fmt.Fprintf(output, "<!-- URL: %s -->\n", result.URL)
+		fmt.Fprintf(output, "<!-- Title: %s -->\n", result.Title)
+		fmt.Fprintln(output)
+
+		// Fetch the page
+		req, err := setupHTTPRequest("GET", result.URL, config)
+		if err != nil {
+			fmt.Fprintf(output, "<!-- Error creating request: %v -->\n", err)
+			continue
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Fprintf(output, "<!-- Error fetching page: %v -->\n", err)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			fmt.Fprintf(output, "<!-- HTTP %d error -->\n", resp.StatusCode)
+			continue
+		}
+
+		// Handle gzip compression
+		var reader io.ReadCloser
+		switch resp.Header.Get("Content-Encoding") {
+		case "gzip":
+			reader, err = gzip.NewReader(resp.Body)
+			if err != nil {
+				resp.Body.Close()
+				fmt.Fprintf(output, "<!-- Error creating gzip reader: %v -->\n", err)
+				continue
+			}
+			defer reader.Close()
+		default:
+			reader = resp.Body
+		}
+
+		// Read the body
+		bodyBytes, err := io.ReadAll(reader)
+		resp.Body.Close()
+		if err != nil {
+			fmt.Fprintf(output, "<!-- Error reading page: %v -->\n", err)
+			continue
+		}
+
+		// Output raw HTML
+		fmt.Fprintln(output, string(bodyBytes))
+	}
+
+	return nil
+}
+
 func printEngines(result SearchResult, dim *color.Color) {
 	engines := make([]string, len(result.Engines))
 	copy(engines, result.Engines)
@@ -528,6 +684,106 @@ func printResultsToFile(results []SearchResult, count int, startAt int, expand b
 
 	// Restore stdout
 	os.Stdout = oldStdout
+
+	return nil
+}
+
+func printTextOnly(results []SearchResult, outputFile string, config *Config) error {
+	var output io.Writer = os.Stdout
+
+	if outputFile != "" {
+		file, err := os.Create(outputFile)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %v", err)
+		}
+		defer file.Close()
+		output = file
+	}
+
+	client := &http.Client{
+		Timeout: time.Duration(config.Timeout) * time.Second,
+	}
+
+	if config.NoVerifySSL {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client.Transport = tr
+	}
+
+	for i, result := range results {
+		if i > 0 {
+			fmt.Fprintln(output, "\n"+strings.Repeat("=", 80))
+		}
+
+		fmt.Fprintf(output, "URL: %s\n", result.URL)
+		fmt.Fprintf(output, "Title: %s\n\n", result.Title)
+
+		if result.URL == "" {
+			continue
+		}
+
+		// Fetch the page
+		req, err := http.NewRequest("GET", result.URL, nil)
+		if err != nil {
+			fmt.Fprintf(output, "Error creating request: %v\n", err)
+			continue
+		}
+
+		if !config.NoUserAgent {
+			req.Header.Set("User-Agent", "sx/1.0")
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Fprintf(output, "Error fetching page: %v\n", err)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			fmt.Fprintf(output, "HTTP %d error\n", resp.StatusCode)
+			continue
+		}
+
+		// Parse URL for readability
+		parsedURL, err := url.Parse(result.URL)
+		if err != nil {
+			resp.Body.Close()
+			fmt.Fprintf(output, "Error parsing URL: %v\n", err)
+			continue
+		}
+
+		// Use readability to extract main content
+		article, err := readability.FromReader(resp.Body, parsedURL)
+		resp.Body.Close()
+		if err != nil {
+			fmt.Fprintf(output, "Error extracting content: %v\n", err)
+			continue
+		}
+
+		// Convert HTML to Markdown
+		converter := md.NewConverter("", true, nil)
+		markdown, err := converter.ConvertString(article.Content)
+		if err != nil {
+			fmt.Fprintf(output, "Error converting to markdown: %v\n", err)
+			continue
+		}
+
+		// Print the article metadata
+		if article.Byline != "" {
+			fmt.Fprintf(output, "Author: %s\n", article.Byline)
+		}
+		if article.PublishedTime != nil && !article.PublishedTime.IsZero() {
+			fmt.Fprintf(output, "Published: %s\n", article.PublishedTime.Format("2006-01-02"))
+		}
+		if article.Excerpt != "" {
+			fmt.Fprintf(output, "Excerpt: %s\n", article.Excerpt)
+		}
+		fmt.Fprintln(output)
+
+		fmt.Fprintln(output, markdown)
+	}
 
 	return nil
 }

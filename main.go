@@ -58,7 +58,10 @@ func main() {
 	rootCmd.Flags().StringVarP(&searchOpts.TimeRange, "time-range", "t", "", "search results within a specific time range (day, week, month, year)")
 	rootCmd.Flags().BoolVar(&searchOpts.Unsafe, "unsafe", false, "allow unsafe search results")
 	rootCmd.Flags().BoolVar(&config.Debug, "debug", config.Debug, "show debug output")
+	rootCmd.Flags().BoolVarP(&searchOpts.HTMLOnly, "html", "H", false, "fetch and output raw HTML with anti-bot detection")
 	rootCmd.Flags().BoolVarP(&searchOpts.LinksOnly, "links-only", "L", false, "output only URLs, one per line")
+	rootCmd.Flags().BoolVar(&searchOpts.LinksOnly, "link", false, "output only URLs, one per line (alias for --links-only)")
+	rootCmd.Flags().BoolVarP(&searchOpts.TextOnly, "text", "T", false, "fetch pages and convert to clean markdown (uses readability)")
 	rootCmd.Flags().StringVarP(&searchOpts.OutputFile, "output", "o", "", "save output to file")
 	rootCmd.Flags().BoolVar(&searchOpts.Top, "top", false, "show only the top result")
 
@@ -222,6 +225,38 @@ func runSearch(cmd *cobra.Command, args []string) {
 			linksResults := allResults[startAt:end]
 			if err := printLinksOnly(linksResults, searchOpts.OutputFile); err != nil {
 				fmt.Fprintf(os.Stderr, "Error outputting links: %v\n", err)
+			}
+			return
+		}
+
+		if searchOpts.HTMLOnly {
+			count := config.ResultCount
+			if count == 0 {
+				count = len(allResults)
+			}
+			end := startAt + count
+			if end > len(allResults) {
+				end = len(allResults)
+			}
+			htmlResults := allResults[startAt:end]
+			if err := printHTMLOnly(htmlResults, searchOpts.OutputFile, config); err != nil {
+				fmt.Fprintf(os.Stderr, "Error outputting HTML: %v\n", err)
+			}
+			return
+		}
+
+		if searchOpts.TextOnly {
+			count := config.ResultCount
+			if count == 0 {
+				count = len(allResults)
+			}
+			end := startAt + count
+			if end > len(allResults) {
+				end = len(allResults)
+			}
+			textResults := allResults[startAt:end]
+			if err := printTextOnly(textResults, searchOpts.OutputFile, config); err != nil {
+				fmt.Fprintf(os.Stderr, "Error outputting text: %v\n", err)
 			}
 			return
 		}
