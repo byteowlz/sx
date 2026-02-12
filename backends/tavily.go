@@ -16,6 +16,7 @@ type TavilyBackend struct {
 	SearchDepth       string // "basic" (1 credit) or "advanced" (2 credits)
 	IncludeRawContent bool   // Return full page content inline
 	IncludeAnswer     bool   // Return a direct answer
+	BaseURL           string // overridable for testing
 	client            *http.Client
 }
 
@@ -33,6 +34,7 @@ func NewTavilyBackend(apiKey string, timeout time.Duration, searchDepth string, 
 		SearchDepth:       searchDepth,
 		IncludeRawContent: includeRawContent,
 		IncludeAnswer:     includeAnswer,
+		BaseURL:           "https://api.tavily.com/search",
 		client: &http.Client{
 			Timeout: timeout,
 		},
@@ -112,7 +114,7 @@ func (t *TavilyBackend) Search(opts SearchOptions) ([]SearchResult, error) {
 		}
 	}
 
-	req, err := http.NewRequest("POST", "https://api.tavily.com/search", bytes.NewReader(bodyBytes))
+	req, err := http.NewRequest("POST", t.BaseURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, &BackendError{
 			Backend: t.Name(),

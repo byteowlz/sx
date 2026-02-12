@@ -13,6 +13,7 @@ import (
 type BraveBackend struct {
 	APIKey  string
 	Timeout time.Duration
+	BaseURL string // overridable for testing
 	client  *http.Client
 }
 
@@ -24,6 +25,7 @@ func NewBraveBackend(apiKey string, timeout time.Duration) *BraveBackend {
 	return &BraveBackend{
 		APIKey:  apiKey,
 		Timeout: timeout,
+		BaseURL: "https://api.search.brave.com/res/v1/web/search",
 		client: &http.Client{
 			Timeout: timeout,
 		},
@@ -72,7 +74,7 @@ func (b *BraveBackend) Search(opts SearchOptions) ([]SearchResult, error) {
 	}
 
 	// Build URL
-	baseURL := "https://api.search.brave.com/res/v1/web/search"
+	baseURL := b.BaseURL
 	params := url.Values{}
 	params.Set("q", opts.Query)
 	
