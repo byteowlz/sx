@@ -18,6 +18,8 @@ import (
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/fatih/color"
 	"github.com/go-shiori/go-readability"
+
+	"sx/backends"
 )
 
 const maxContentWords = 128
@@ -38,27 +40,31 @@ var userAgents = []string{
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
 }
 
+// SearchResult is an alias for backends.SearchResult
+type SearchResult = backends.SearchResult
+
 type SearchOptions struct {
-	Categories  []string
-	Engines     []string
-	SafeSearch  string
-	Language    string
-	TimeRange   string
-	Site        string
-	PageNo      int
-	Expand      bool
-	JSON        bool
-	First       bool
-	Lucky       bool
-	NoPrompt    bool
-	Interactive bool
-	Unsafe      bool
-	LinksOnly   bool
-	OutputFile  string
-	Top         bool
-	Clean       bool
-	TextOnly    bool
-	HTMLOnly    bool
+	Categories     []string
+	SearxngEngines []string // SearXNG-specific engines (not to confuse with search backends)
+	SafeSearch     string
+	Language       string
+	TimeRange      string
+	Site           string
+	PageNo         int
+	Expand         bool
+	JSON           bool
+	First          bool
+	Lucky          bool
+	NoPrompt       bool
+	Interactive    bool
+	Unsafe         bool
+	LinksOnly      bool
+	OutputFile     string
+	Top            bool
+	Clean          bool
+	TextOnly       bool
+	HTMLOnly       bool
+	ExplicitEngine string // --engine flag: force a specific search backend
 }
 
 func printResults(results []SearchResult, count int, startAt int, expand bool, noColor bool, query string) {

@@ -29,6 +29,25 @@ type Config struct {
 	DefaultOutput   string   `toml:"default_output,omitempty"`
 	HistoryEnabled  bool     `toml:"history_enabled"`
 	MaxHistory      int      `toml:"max_history"`
+
+	// Multi-engine support
+	Engine          string          `toml:"engine"`
+	FallbackEngines []string        `toml:"fallback_engines,omitempty"`
+	EnginesBrave    BraveConfig     `toml:"engines_brave"`
+	EnginesTavily   TavilyConfig    `toml:"engines_tavily"`
+}
+
+// BraveConfig holds Brave Search API configuration
+type BraveConfig struct {
+	APIKey string `toml:"api_key,omitempty"`
+}
+
+// TavilyConfig holds Tavily Search API configuration
+type TavilyConfig struct {
+	APIKey            string `toml:"api_key,omitempty"`
+	SearchDepth       string `toml:"search_depth,omitempty"`
+	IncludeRawContent bool   `toml:"include_raw_content,omitempty"`
+	IncludeAnswer     bool   `toml:"include_answer,omitempty"`
 }
 
 const (
@@ -80,6 +99,10 @@ func getDefaultConfig() *Config {
 		DefaultOutput:  defaultDefaultOutput,
 		HistoryEnabled: defaultHistoryEnabled,
 		MaxHistory:     defaultMaxHistory,
+		Engine:         "searxng",
+		EnginesTavily: TavilyConfig{
+			SearchDepth: "basic",
+		},
 	}
 }
 

@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"sx/backends"
 )
 
 const version = "2.0.0"
@@ -18,6 +20,7 @@ const version = "2.0.0"
 var (
 	config     *Config
 	searchOpts SearchOptions
+	backendMgr *backends.Manager
 )
 
 // isTerminal checks if the given file is connected to a terminal
@@ -52,7 +55,8 @@ func main() {
 	rootCmd.Flags().StringSliceVar(&searchOpts.Categories, "categories", nil, fmt.Sprintf("list of categories to search in: %s", strings.Join(searxngCategories, ", ")))
 	rootCmd.Flags().BoolVar(&searchOpts.JSON, "json", false, "output search results in JSON format")
 	rootCmd.Flags().BoolVarP(&searchOpts.Clean, "clean", "c", false, "omit empty and null values in JSON output")
-	rootCmd.Flags().StringSliceVarP(&searchOpts.Engines, "engines", "e", nil, "list of engines to use for search")
+	rootCmd.Flags().StringSliceVarP(&searchOpts.SearxngEngines, "engines", "e", nil, "list of SearXNG engines to use for search")
+	rootCmd.Flags().StringVar(&searchOpts.ExplicitEngine, "engine", "", fmt.Sprintf("search backend to use (%s)", validEngineNames()))
 	rootCmd.Flags().BoolVarP(&searchOpts.Expand, "expand", "x", config.Expand, "show complete URL in search results")
 	rootCmd.Flags().BoolVarP(&searchOpts.First, "first", "j", false, "open the first result in web browser and exit")
 	rootCmd.Flags().StringVar(&config.HTTPMethod, "http-method", config.HTTPMethod, "HTTP method to use for search requests (GET or POST)")
@@ -197,6 +201,9 @@ func runSearch(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	// Initialize backend manager
+	backendMgr = initBackendManager(config)
+
 	// Determine interactive mode:
 	// 1. Explicit -i/--interactive flag wins
 	// 2. Config default_output = "interactive" enables it
@@ -242,9 +249,17 @@ func runSearch(cmd *cobra.Command, args []string) {
 		config.ResultCount = 1
 	}
 
-	// Validate config
-	if config.SearxngURL == "" {
-		fmt.Fprintf(os.Stderr, "Error: searxng_url is not set in config\n")
+	// Validate config: only require searxng_url if using searxng engine
+	engineToUse := searchOpts.ExplicitEngine
+	if engineToUse == "" {
+		engineToUse = config.Engine
+	}
+	if engineToUse == "" {
+		engineToUse = "searxng"
+	}
+	if engineToUse == "searxng" && config.SearxngURL == "" && len(config.FallbackEngines) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: searxng_url is not set in config and no fallback engines configured\n")
+		fmt.Fprintf(os.Stderr, "Set searxng_url in config.toml or use --engine brave/tavily\n")
 		return
 	}
 
@@ -278,14 +293,18 @@ func runSearch(cmd *cobra.Command, args []string) {
 	searchOpts.PageNo = 1
 	startAt := 0
 	var allResults []SearchResult
+	var usedEngine string
 
 	for {
 		// Fetch results until we have enough
 		for len(allResults) < startAt+config.ResultCount {
-			results, err := performSearch(query, config, &searchOpts)
+			results, engine, err := performSearch(query, config, &searchOpts, backendMgr, searchOpts.ExplicitEngine)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Search error: %v\n", err)
 				return
+			}
+			if usedEngine == "" {
+				usedEngine = engine
 			}
 
 			if len(results) == 0 {

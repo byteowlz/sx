@@ -1,53 +1,13 @@
 package main
 
 import (
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"strconv"
+	"os"
 	"strings"
 	"time"
+
+	"sx/backends"
 )
-
-type SearchResult struct {
-	Title         string                 `json:"title"`
-	URL           string                 `json:"url"`
-	Content       string                 `json:"content"`
-	Engine        string                 `json:"engine"`
-	Engines       []string               `json:"engines"`
-	Category      string                 `json:"category"`
-	Template      string                 `json:"template"`
-	PublishedDate string                 `json:"publishedDate"`
-	Author        string                 `json:"author"`
-	Length        interface{}            `json:"length"`
-	Source        string                 `json:"source"`
-	Resolution    string                 `json:"resolution"`
-	ImgSrc        string                 `json:"img_src"`
-	Address       map[string]interface{} `json:"address"`
-	Longitude     float64                `json:"longitude"`
-	Latitude      float64                `json:"latitude"`
-	Journal       string                 `json:"journal"`
-	Publisher     string                 `json:"publisher"`
-	MagnetLink    string                 `json:"magnetlink"`
-	Seed          int                    `json:"seed"`
-	Leech         int                    `json:"leech"`
-	FileSize      string                 `json:"filesize"`
-	Size          string                 `json:"size"`
-	Metadata      string                 `json:"metadata"`
-}
-
-type SearchResponse struct {
-	Results []SearchResult `json:"results"`
-}
-
-var safeSearchOptions = map[string]int{
-	"none":     0,
-	"moderate": 1,
-	"strict":   2,
-}
 
 var timeRangeOptions = []string{"day", "week", "month", "year"}
 var timeRangeShortOptions = []string{"d", "w", "m", "y"}
@@ -59,180 +19,113 @@ var searxngCategories = []string{
 
 // categoryAliases maps alternative names to canonical category names
 var categoryAliases = map[string]string{
-	"social+media":  "social media",
-	"social-media":  "social media",
-	"social_media":  "social media",
-	"socialmedia":   "social media",
+	"social+media": "social media",
+	"social-media": "social media",
+	"social_media": "social media",
+	"socialmedia":  "social media",
 }
 
-func performSearch(query string, config *Config, searchOpts *SearchOptions) ([]SearchResult, error) {
-	client := &http.Client{
-		Timeout: time.Duration(config.Timeout) * time.Second,
+// initBackendManager creates and configures the backend manager from config
+func initBackendManager(config *Config) *backends.Manager {
+	mgr := backends.NewManager()
+
+	// Register SearXNG backend
+	searxng := backends.NewSearxngBackend(
+		config.SearxngURL,
+		config.SearxngUsername,
+		config.SearxngPassword,
+		config.HTTPMethod,
+		time.Duration(config.Timeout)*time.Second,
+		config.NoVerifySSL,
+		config.NoUserAgent,
+	)
+	mgr.Register(searxng)
+
+	// Register Brave backend
+	braveAPIKey := config.EnginesBrave.APIKey
+	if envKey := os.Getenv("BRAVE_API_KEY"); envKey != "" {
+		braveAPIKey = envKey
+	}
+	brave := backends.NewBraveBackend(
+		braveAPIKey,
+		time.Duration(config.Timeout)*time.Second,
+	)
+	mgr.Register(brave)
+
+	// Register Tavily backend
+	tavilyAPIKey := config.EnginesTavily.APIKey
+	if envKey := os.Getenv("TAVILY_API_KEY"); envKey != "" {
+		tavilyAPIKey = envKey
+	}
+	searchDepth := config.EnginesTavily.SearchDepth
+	if searchDepth == "" {
+		searchDepth = "basic"
+	}
+	tavily := backends.NewTavilyBackend(
+		tavilyAPIKey,
+		time.Duration(config.Timeout)*time.Second,
+		searchDepth,
+		config.EnginesTavily.IncludeRawContent,
+		config.EnginesTavily.IncludeAnswer,
+	)
+	mgr.Register(tavily)
+
+	// Set primary engine
+	engine := config.Engine
+	if engine == "" {
+		engine = "searxng"
+	}
+	if err := mgr.SetPrimary(engine); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v, falling back to searxng\n", err)
+		mgr.SetPrimary("searxng")
 	}
 
-	if config.NoVerifySSL {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		client.Transport = tr
-	}
-
-	var searchURL string
-	var requestBody io.Reader
-
-	if searchOpts.Site != "" {
-		query = fmt.Sprintf("site:%s %s", searchOpts.Site, query)
-	}
-
-	if strings.ToUpper(config.HTTPMethod) == "POST" {
-		searchURL = fmt.Sprintf("%s/search", config.SearxngURL)
-
-		data := url.Values{}
-		data.Set("q", query)
-		data.Set("format", "json")
-
-		if searchOpts.Categories != nil && len(searchOpts.Categories) > 0 {
-			categories := make([]string, len(searchOpts.Categories))
-			for i, cat := range searchOpts.Categories {
-				categories[i] = normalizeCategory(cat)
-			}
-			data.Set("categories", strings.Join(categories, ","))
-		}
-
-		if searchOpts.Engines != nil && len(searchOpts.Engines) > 0 {
-			data.Set("engines", strings.Join(searchOpts.Engines, ","))
-		}
-
-		if searchOpts.Language != "" {
-			data.Set("language", searchOpts.Language)
-		}
-
-		if searchOpts.PageNo > 1 {
-			data.Set("pageno", strconv.Itoa(searchOpts.PageNo))
-		}
-
-		if searchOpts.SafeSearch != "" {
-			if val, ok := safeSearchOptions[searchOpts.SafeSearch]; ok {
-				data.Set("safesearch", strconv.Itoa(val))
-			}
-		}
-
-		if searchOpts.TimeRange != "" {
-			data.Set("time_range", searchOpts.TimeRange)
-		}
-
-		requestBody = strings.NewReader(data.Encode())
-	} else {
-		// GET request
-		u, err := url.Parse(config.SearxngURL + "/search")
-		if err != nil {
-			return nil, fmt.Errorf("invalid SearXNG URL: %v", err)
-		}
-
-		params := url.Values{}
-		params.Set("q", query)
-		params.Set("format", "json")
-
-		if searchOpts.Categories != nil && len(searchOpts.Categories) > 0 {
-			categories := make([]string, len(searchOpts.Categories))
-			for i, cat := range searchOpts.Categories {
-				categories[i] = normalizeCategory(cat)
-			}
-			params.Set("categories", strings.Join(categories, ","))
-		}
-
-		if searchOpts.Engines != nil && len(searchOpts.Engines) > 0 {
-			params.Set("engines", strings.Join(searchOpts.Engines, ","))
-		}
-
-		if searchOpts.Language != "" {
-			params.Set("language", searchOpts.Language)
-		}
-
-		if searchOpts.SafeSearch != "" {
-			if val, ok := safeSearchOptions[searchOpts.SafeSearch]; ok {
-				params.Set("safesearch", strconv.Itoa(val))
-			}
-		}
-
-		if searchOpts.TimeRange != "" {
-			params.Set("time_range", searchOpts.TimeRange)
-		}
-
-		if searchOpts.PageNo > 1 {
-			params.Set("pageno", strconv.Itoa(searchOpts.PageNo))
-		}
-
-		u.RawQuery = params.Encode()
-		searchURL = u.String()
-	}
-
-	var req *http.Request
-	var err error
-
-	if strings.ToUpper(config.HTTPMethod) == "POST" {
-		req, err = http.NewRequest("POST", searchURL, requestBody)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %v", err)
-		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	} else {
-		req, err = http.NewRequest("GET", searchURL, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %v", err)
+	// Set fallback engines
+	if len(config.FallbackEngines) > 0 {
+		if err := mgr.SetFallbacks(config.FallbackEngines); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 		}
 	}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Accept-Encoding", "gzip, deflate")
+	return mgr
+}
 
-	if !config.NoUserAgent {
-		req.Header.Set("User-Agent", "sx/1.0")
+// performSearch executes a search using the backend manager
+func performSearch(query string, config *Config, searchOpts *SearchOptions, mgr *backends.Manager, explicitEngine string) ([]backends.SearchResult, string, error) {
+	opts := backends.SearchOptions{
+		Query:      query,
+		Categories: searchOpts.Categories,
+		Engines:    searchOpts.SearxngEngines,
+		Language:   searchOpts.Language,
+		TimeRange:  searchOpts.TimeRange,
+		Site:       searchOpts.Site,
+		SafeSearch: searchOpts.SafeSearch,
+		PageNo:     searchOpts.PageNo,
+		NumResults: config.ResultCount,
 	}
 
-	if config.SearxngUsername != "" && config.SearxngPassword != "" {
-		req.SetBasicAuth(config.SearxngUsername, config.SearxngPassword)
+	// If an explicit engine was requested via --engine flag, use only that
+	if explicitEngine != "" {
+		results, err := mgr.SearchExplicit(explicitEngine, opts)
+		return results, explicitEngine, err
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %v", err)
-	}
-
-	var searchResp SearchResponse
-	if err := json.Unmarshal(body, &searchResp); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON response: %v", err)
-	}
-
-	return searchResp.Results, nil
+	// Otherwise use primary + fallback chain
+	return mgr.Search(opts)
 }
 
 func validateCategory(category string) bool {
-	// Check canonical names
 	for _, cat := range searxngCategories {
 		if cat == category {
 			return true
 		}
 	}
-	// Check aliases
 	if _, ok := categoryAliases[category]; ok {
 		return true
 	}
 	return false
 }
 
-// normalizeCategory converts category aliases to their canonical form
 func normalizeCategory(category string) string {
 	if canonical, ok := categoryAliases[category]; ok {
 		return canonical
@@ -267,4 +160,9 @@ func expandTimeRange(timeRange string) string {
 	default:
 		return timeRange
 	}
+}
+
+// validEngineNames returns all valid engine names for help text
+func validEngineNames() string {
+	return strings.Join([]string{"searxng", "brave", "tavily"}, ", ")
 }
