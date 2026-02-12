@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	Schema          string   `toml:"$schema,omitempty"`
 	SearxngURL      string   `toml:"searxng_url"`
 	SearxngUsername string   `toml:"searxng_username,omitempty"`
 	SearxngPassword string   `toml:"searxng_password,omitempty"`
@@ -169,8 +170,11 @@ func createConfigFile(configDir, configFile string) error {
 	}
 	defer file.Close()
 
-	// Write header comment
-	_, err = file.WriteString("# sx configuration file\n")
+	// Write schema reference and header
+	_, err = file.WriteString(`"$schema" = "https://raw.githubusercontent.com/byteowlz/schemas/refs/heads/main/sx/sx.config.schema.json"
+
+# sx configuration file
+`)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,169 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/byteowlz/sx/schemas/config.schema.json",
+  "title": "sx configuration",
+  "description": "Configuration schema for sx - multi-engine web search CLI",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for editor support"
+    },
+    "engine": {
+      "type": "string",
+      "enum": ["searxng", "brave", "tavily"],
+      "default": "searxng",
+      "description": "Primary search engine backend"
+    },
+    "fallback_engines": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["searxng", "brave", "tavily"]
+      },
+      "description": "Fallback engines tried in order if primary fails"
+    },
+    "searxng_url": {
+      "type": "string",
+      "description": "SearXNG instance URL"
+    },
+    "searxng_username": {
+      "type": "string",
+      "description": "Optional basic authentication username for SearXNG"
+    },
+    "searxng_password": {
+      "type": "string",
+      "description": "Optional basic authentication password for SearXNG"
+    },
+    "result_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 10,
+      "description": "Number of results to show per page"
+    },
+    "safe_search": {
+      "type": "string",
+      "enum": ["none", "moderate", "strict"],
+      "default": "strict",
+      "description": "Safe search filtering level"
+    },
+    "expand": {
+      "type": "boolean",
+      "default": false,
+      "description": "Show complete URLs in search results"
+    },
+    "http_method": {
+      "type": "string",
+      "enum": ["GET", "POST"],
+      "default": "GET",
+      "description": "HTTP method for SearXNG requests"
+    },
+    "timeout": {
+      "type": "number",
+      "minimum": 1,
+      "default": 30.0,
+      "description": "Request timeout in seconds"
+    },
+    "no_verify_ssl": {
+      "type": "boolean",
+      "default": false,
+      "description": "Disable SSL certificate verification"
+    },
+    "no_user_agent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Disable user agent header"
+    },
+    "no_color": {
+      "type": "boolean",
+      "default": false,
+      "description": "Disable colored output"
+    },
+    "debug": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable debug output"
+    },
+    "default_output": {
+      "type": "string",
+      "description": "Default output mode (e.g. 'interactive' to default to interactive mode)"
+    },
+    "history_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable query history"
+    },
+    "max_history": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 100,
+      "description": "Maximum number of history entries to keep"
+    },
+    "categories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Default search categories (general, news, videos, images, music, map, science, it, files, social+media)"
+    },
+    "engines": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Default SearXNG search engines (duckduckgo, google, brave, etc.)"
+    },
+    "language": {
+      "type": "string",
+      "description": "Default search language (e.g. 'en', 'de')"
+    },
+    "url_handler": {
+      "type": "string",
+      "description": "URL handler command (auto-detected: open on macOS, xdg-open on Linux)"
+    },
+    "engines_brave": {
+      "$ref": "#/definitions/BraveConfig"
+    },
+    "engines_tavily": {
+      "$ref": "#/definitions/TavilyConfig"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "BraveConfig": {
+      "type": "object",
+      "description": "Brave Search API configuration",
+      "properties": {
+        "api_key": {
+          "type": "string",
+          "description": "Brave Search API key (or set BRAVE_API_KEY env var)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TavilyConfig": {
+      "type": "object",
+      "description": "Tavily Search API configuration",
+      "properties": {
+        "api_key": {
+          "type": "string",
+          "description": "Tavily API key (or set TAVILY_API_KEY env var)"
+        },
+        "search_depth": {
+          "type": "string",
+          "enum": ["basic", "advanced"],
+          "default": "basic",
+          "description": "Search depth: basic (1 credit) or advanced (2 credits)"
+        },
+        "include_raw_content": {
+          "type": "boolean",
+          "default": false,
+          "description": "Return full page content with results"
+        },
+        "include_answer": {
+          "type": "boolean",
+          "default": false,
+          "description": "Return a direct answer"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

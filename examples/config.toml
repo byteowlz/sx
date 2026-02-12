@@ -1,0 +1,78 @@
+"$schema" = "https://raw.githubusercontent.com/byteowlz/schemas/refs/heads/main/sx/sx.config.schema.json"
+
+# sx configuration file
+# Copy to $XDG_CONFIG_HOME/sx/config.toml (typically ~/.config/sx/config.toml)
+
+# Primary search engine (searxng, brave, tavily)
+engine = "searxng"
+
+# Fallback engines tried in order if primary fails
+fallback_engines = ["brave", "tavily"]
+
+# SearXNG instance URL (required when engine = "searxng")
+searxng_url = "https://searxng.example.com"
+
+# Optional basic authentication for SearXNG
+# searxng_username = "username"
+# searxng_password = "password"
+
+# Number of results to show per page (default: 10)
+result_count = 10
+
+# Default safe search level: none, moderate, strict (default: strict)
+safe_search = "strict"
+
+# Show complete URLs in search results (default: false)
+expand = false
+
+# HTTP method for SearXNG requests: GET or POST (default: GET)
+http_method = "GET"
+
+# Request timeout in seconds (default: 30.0)
+timeout = 30.0
+
+# Disable SSL certificate verification (default: false)
+no_verify_ssl = false
+
+# Disable user agent header (default: false)
+no_user_agent = false
+
+# Disable colored output (default: false)
+no_color = false
+
+# Enable debug output (default: false)
+debug = false
+
+# Default output mode (optional, set to "interactive" to default to interactive mode)
+# default_output = ""
+
+# Query history
+history_enabled = true
+max_history = 100
+
+# Default search categories (optional)
+# Available: general, news, videos, images, music, map, science, it, files, social+media
+# categories = ["general", "news"]
+
+# Default SearXNG search engines (optional)
+# engines = ["duckduckgo", "google", "brave"]
+
+# Default search language (optional)
+# language = "en"
+
+# URL handler command (optional, auto-detected by default)
+# macOS: "open", Linux: "xdg-open", Windows: "explorer"
+# url_handler = "open"
+
+# Brave Search API (https://api.search.brave.com/)
+# Free tier: 2,000 requests/month
+[engines_brave]
+api_key = ""  # or set BRAVE_API_KEY env var
+
+# Tavily Search API (https://tavily.com/)
+# Free tier: 1,000 credits/month
+[engines_tavily]
+api_key = ""                  # or set TAVILY_API_KEY env var
+search_depth = "basic"        # basic (1 credit) or advanced (2 credits)
+include_raw_content = false   # return full page content with results
+include_answer = false        # return a direct answer
