@@ -13,12 +13,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const version = "1.0.0"
+const version = "2.0.0"
 
 var (
 	config     *Config
 	searchOpts SearchOptions
 )
+
+// isTerminal checks if the given file is connected to a terminal
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
 
 func main() {
 	var err error
@@ -29,11 +38,13 @@ func main() {
 	}
 
 	var rootCmd = &cobra.Command{
-		Use:     "sx [query...]",
-		Short:   "SearXNG from the command line",
-		Long:    "sx is a command-line interface for SearXNG search instances, inspired by ddgr and googler.",
-		Version: version,
-		Run:     runSearch,
+		Use:                   "sx [query...]",
+		Short:                 "SearXNG from the command line",
+		Long:                  "sx is a command-line interface for SearXNG search instances, inspired by ddgr and googler.",
+		Version:               version,
+		Run:                   runSearch,
+		Args:                  cobra.ArbitraryArgs,
+		DisableFlagsInUseLine: true,
 	}
 
 	// Add flags
@@ -50,20 +61,25 @@ func main() {
 	rootCmd.Flags().BoolVar(&searchOpts.Lucky, "lucky", false, "opens a random result in web browser and exit")
 	rootCmd.Flags().BoolVar(&config.NoVerifySSL, "no-verify-ssl", config.NoVerifySSL, "do not verify SSL certificates")
 	rootCmd.Flags().BoolVar(&config.NoColor, "nocolor", config.NoColor, "disable colored output")
-	rootCmd.Flags().BoolVarP(&searchOpts.NoPrompt, "np", "p", false, "just search and exit, do not prompt")
 	rootCmd.Flags().BoolVar(&config.NoUserAgent, "noua", config.NoUserAgent, "disable user agent")
 	rootCmd.Flags().IntVarP(&config.ResultCount, "num", "n", config.ResultCount, "show N results per page")
 	rootCmd.Flags().StringVar(&searchOpts.SafeSearch, "safe-search", config.SafeSearch, "filter results for safe search (none, moderate, strict)")
 	rootCmd.Flags().StringVarP(&searchOpts.Site, "site", "w", "", "search sites using site: operator")
-	rootCmd.Flags().StringVarP(&searchOpts.TimeRange, "time-range", "t", "", "search results within a specific time range (day, week, month, year)")
+	rootCmd.Flags().StringVarP(&searchOpts.TimeRange, "time-range", "r", "", "search results within a specific time range (day, week, month, year)")
 	rootCmd.Flags().BoolVar(&searchOpts.Unsafe, "unsafe", false, "allow unsafe search results")
 	rootCmd.Flags().BoolVar(&config.Debug, "debug", config.Debug, "show debug output")
 	rootCmd.Flags().BoolVarP(&searchOpts.HTMLOnly, "html", "H", false, "fetch and output raw HTML with anti-bot detection")
 	rootCmd.Flags().BoolVarP(&searchOpts.LinksOnly, "links-only", "L", false, "output only URLs, one per line")
-	rootCmd.Flags().BoolVar(&searchOpts.LinksOnly, "link", false, "output only URLs, one per line (alias for --links-only)")
 	rootCmd.Flags().BoolVarP(&searchOpts.TextOnly, "text", "T", false, "fetch pages and convert to clean markdown (uses readability)")
 	rootCmd.Flags().StringVarP(&searchOpts.OutputFile, "output", "o", "", "save output to file")
 	rootCmd.Flags().BoolVar(&searchOpts.Top, "top", false, "show only the top result")
+
+	// Interactive mode (non-interactive is now the default)
+	rootCmd.Flags().BoolVarP(&searchOpts.Interactive, "interactive", "i", false, "enter interactive mode after displaying results")
+	// Keep -p/--np as hidden deprecated alias for backward compatibility
+	rootCmd.Flags().BoolVarP(&searchOpts.NoPrompt, "np", "p", false, "just search and exit, do not prompt (deprecated: now the default)")
+	rootCmd.Flags().MarkDeprecated("np", "non-interactive is now the default; use -i/--interactive for interactive mode")
+	rootCmd.Flags().MarkShorthandDeprecated("np", "non-interactive is now the default; use -i/--interactive for interactive mode")
 
 	// Category shortcuts
 	var files, music, news, social, videos bool
@@ -72,6 +88,81 @@ func main() {
 	rootCmd.Flags().BoolVarP(&news, "news", "N", false, "show results from news section")
 	rootCmd.Flags().BoolVarP(&social, "social", "S", false, "show results from social media section")
 	rootCmd.Flags().BoolVarP(&videos, "videos", "V", false, "show results from videos section")
+
+	// History subcommand
+	historyCmd := &cobra.Command{
+		Use:   "history",
+		Short: "Show search history",
+		Run: func(cmd *cobra.Command, args []string) {
+			limit, _ := cmd.Flags().GetInt("limit")
+			if err := printHistory(limit); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+	historyCmd.Flags().IntP("limit", "n", 20, "number of history entries to show")
+
+	historyClearCmd := &cobra.Command{
+		Use:   "clear",
+		Short: "Clear search history",
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := clearHistory(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+	historyCmd.AddCommand(historyClearCmd)
+
+	// Completion subcommand
+	completionCmd := &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate shell completion scripts",
+		Long: `Generate shell completion scripts for sx.
+
+To load completions:
+
+Bash:
+  $ source <(sx completion bash)
+  # To load completions for each session, execute once:
+  # Linux:
+  $ sx completion bash > /etc/bash_completion.d/sx
+  # macOS:
+  $ sx completion bash > $(brew --prefix)/etc/bash_completion.d/sx
+
+Zsh:
+  $ source <(sx completion zsh)
+  # To load completions for each session, execute once:
+  $ sx completion zsh > "${fpath[1]}/_sx"
+
+Fish:
+  $ sx completion fish | source
+  # To load completions for each session, execute once:
+  $ sx completion fish > ~/.config/fish/completions/sx.fish
+
+PowerShell:
+  PS> sx completion powershell | Out-String | Invoke-Expression
+`,
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "bash":
+				rootCmd.GenBashCompletion(os.Stdout)
+			case "zsh":
+				rootCmd.GenZshCompletion(os.Stdout)
+			case "fish":
+				rootCmd.GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				rootCmd.GenPowerShellCompletionWithDesc(os.Stdout)
+			}
+		},
+	}
+
+	rootCmd.AddCommand(historyCmd)
+	rootCmd.AddCommand(completionCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -106,6 +197,24 @@ func runSearch(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	// Determine interactive mode:
+	// 1. Explicit -i/--interactive flag wins
+	// 2. Config default_output = "interactive" enables it
+	// 3. Auto-detect: interactive when stdout is TTY and no special output flags
+	// 4. Default: non-interactive
+	interactive := searchOpts.Interactive
+	if !interactive && config.DefaultOutput == "interactive" {
+		interactive = true
+	}
+	// Piped output is never interactive
+	if !isTerminal(os.Stdout) || isPipeInput() {
+		interactive = false
+	}
+	// Special output formats are never interactive
+	if searchOpts.JSON || searchOpts.LinksOnly || searchOpts.HTMLOnly || searchOpts.TextOnly || searchOpts.Top {
+		interactive = false
+	}
+
 	// Handle category shortcuts
 	if files, _ := cmd.Flags().GetBool("files"); files {
 		searchOpts.Categories = []string{"files"}
@@ -117,7 +226,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 		searchOpts.Categories = []string{"news"}
 	}
 	if social, _ := cmd.Flags().GetBool("social"); social {
-		searchOpts.Categories = []string{"social+media"}
+		searchOpts.Categories = []string{"social media"}
 	}
 	if videos, _ := cmd.Flags().GetBool("videos"); videos {
 		searchOpts.Categories = []string{"videos"}
@@ -128,10 +237,9 @@ func runSearch(cmd *cobra.Command, args []string) {
 		searchOpts.SafeSearch = "none"
 	}
 
-	// Handle top flag - show only first result and disable prompt
+	// Handle top flag - show only first result
 	if searchOpts.Top {
 		config.ResultCount = 1
-		searchOpts.NoPrompt = true
 	}
 
 	// Validate config
@@ -163,6 +271,9 @@ func runSearch(cmd *cobra.Command, args []string) {
 	if searchOpts.SafeSearch == "" {
 		searchOpts.SafeSearch = config.SafeSearch
 	}
+
+	// Record query in history
+	_ = appendHistory(query)
 
 	searchOpts.PageNo = 1
 	startAt := 0
@@ -291,8 +402,8 @@ func runSearch(cmd *cobra.Command, args []string) {
 			printResults(allResults, count, startAt, searchOpts.Expand, config.NoColor, query)
 		}
 
-		// Exit if no prompt requested
-		if searchOpts.NoPrompt {
+		// Exit if not interactive
+		if !interactive {
 			return
 		}
 
@@ -355,7 +466,7 @@ func handleInteractiveSession(query *string, allResults *[]SearchResult, startAt
 			fmt.Printf("Debug mode %s\n", map[bool]string{true: "enabled", false: "disabled"}[config.Debug])
 			continue
 
-		case strings.HasPrefix(input, "t "): // Change time range
+		case strings.HasPrefix(input, "r "): // Change time range
 			timeRange := strings.TrimSpace(input[2:])
 			if validateTimeRange(timeRange) {
 				opts.TimeRange = expandTimeRange(timeRange)
@@ -418,6 +529,8 @@ func handleInteractiveSession(query *string, allResults *[]SearchResult, startAt
 				*startAt = 0
 				opts.PageNo = 1
 				*allResults = []SearchResult{}
+				// Record new query in history
+				_ = appendHistory(input)
 				return true
 			}
 		}
@@ -430,7 +543,7 @@ func printHelp() {
 - Type 'n', 'p', and 'f' to navigate to the next, previous and first page of results.
 - Type the index (1, 2, 3, etc) to open the search result in a browser.
 - Type 'c' plus the index ('c 1', 'c 2') to show the result URL.
-- Type 't timerange' to change the search time range (e.g. 't week').
+- Type 'r timerange' to change the search time range (e.g. 'r week').
 - Type 'site:example.com' to filter results by a specific site.
 - Type 'x' to toggle showing result URLs.
 - Type 'd' to toggle debug output.

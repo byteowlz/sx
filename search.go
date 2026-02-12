@@ -54,7 +54,15 @@ var timeRangeShortOptions = []string{"d", "w", "m", "y"}
 
 var searxngCategories = []string{
 	"general", "news", "videos", "images", "music",
-	"map", "science", "it", "files", "social+media",
+	"map", "science", "it", "files", "social media",
+}
+
+// categoryAliases maps alternative names to canonical category names
+var categoryAliases = map[string]string{
+	"social+media":  "social media",
+	"social-media":  "social media",
+	"social_media":  "social media",
+	"socialmedia":   "social media",
 }
 
 func performSearch(query string, config *Config, searchOpts *SearchOptions) ([]SearchResult, error) {
@@ -85,12 +93,8 @@ func performSearch(query string, config *Config, searchOpts *SearchOptions) ([]S
 
 		if searchOpts.Categories != nil && len(searchOpts.Categories) > 0 {
 			categories := make([]string, len(searchOpts.Categories))
-			copy(categories, searchOpts.Categories)
-			// Replace social+media with social media for POST requests
-			for i, cat := range categories {
-				if cat == "social+media" {
-					categories[i] = "social media"
-				}
+			for i, cat := range searchOpts.Categories {
+				categories[i] = normalizeCategory(cat)
 			}
 			data.Set("categories", strings.Join(categories, ","))
 		}
@@ -130,7 +134,11 @@ func performSearch(query string, config *Config, searchOpts *SearchOptions) ([]S
 		params.Set("format", "json")
 
 		if searchOpts.Categories != nil && len(searchOpts.Categories) > 0 {
-			params.Set("categories", strings.Join(searchOpts.Categories, ","))
+			categories := make([]string, len(searchOpts.Categories))
+			for i, cat := range searchOpts.Categories {
+				categories[i] = normalizeCategory(cat)
+			}
+			params.Set("categories", strings.Join(categories, ","))
 		}
 
 		if searchOpts.Engines != nil && len(searchOpts.Engines) > 0 {
@@ -211,12 +219,25 @@ func performSearch(query string, config *Config, searchOpts *SearchOptions) ([]S
 }
 
 func validateCategory(category string) bool {
+	// Check canonical names
 	for _, cat := range searxngCategories {
 		if cat == category {
 			return true
 		}
 	}
+	// Check aliases
+	if _, ok := categoryAliases[category]; ok {
+		return true
+	}
 	return false
+}
+
+// normalizeCategory converts category aliases to their canonical form
+func normalizeCategory(category string) string {
+	if canonical, ok := categoryAliases[category]; ok {
+		return canonical
+	}
+	return category
 }
 
 func validateTimeRange(timeRange string) bool {

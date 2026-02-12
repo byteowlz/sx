@@ -2,15 +2,6 @@
 
 ## Open
 
-### [trx-fkdr] Fix version flag to display version instead of searching (P0, epic)
-# Problem
-The --version flag does not work. Running 'sx version' or 'sx --version' performs a search instead of showing the version.
-
-# Proposed Solution
-- Fix cobra's version handling
-...
-
-
 ### [trx-8csx] Standardize category naming convention (P1, epic)
 # Problem
 Category 'social+media' uses inconsistent naming with a + sign while others use simple names or hyphens.
@@ -74,3 +65,6 @@ No shell completions available for bash, zsh, or fish.
 ...
 
 
+## Closed
+
+- [trx-fkdr] Fix version flag to display version instead of searching (closed 2026-02-12)

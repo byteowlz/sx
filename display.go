@@ -39,25 +39,26 @@ var userAgents = []string{
 }
 
 type SearchOptions struct {
-	Categories []string
-	Engines    []string
-	SafeSearch string
-	Language   string
-	TimeRange  string
-	Site       string
-	PageNo     int
-	Expand     bool
-	JSON       bool
-	First      bool
-	Lucky      bool
-	NoPrompt   bool
-	Unsafe     bool
-	LinksOnly  bool
-	OutputFile string
-	Top        bool
-	Clean      bool
-	TextOnly   bool
-	HTMLOnly   bool
+	Categories  []string
+	Engines     []string
+	SafeSearch  string
+	Language    string
+	TimeRange   string
+	Site        string
+	PageNo      int
+	Expand      bool
+	JSON        bool
+	First       bool
+	Lucky       bool
+	NoPrompt    bool
+	Interactive bool
+	Unsafe      bool
+	LinksOnly   bool
+	OutputFile  string
+	Top         bool
+	Clean       bool
+	TextOnly    bool
+	HTMLOnly    bool
 }
 
 func printResults(results []SearchResult, count int, startAt int, expand bool, noColor bool, query string) {

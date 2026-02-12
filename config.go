@@ -26,19 +26,25 @@ type Config struct {
 	NoColor         bool     `toml:"no_color"`
 	URLHandler      string   `toml:"url_handler,omitempty"`
 	Debug           bool     `toml:"debug"`
+	DefaultOutput   string   `toml:"default_output,omitempty"`
+	HistoryEnabled  bool     `toml:"history_enabled"`
+	MaxHistory      int      `toml:"max_history"`
 }
 
 const (
-	defaultSearxngURL  = "https://searxng.example.com"
-	defaultResultCount = 10
-	defaultSafeSearch  = "strict"
-	defaultHTTPMethod  = "GET"
-	defaultTimeout     = 30.0
-	defaultExpand      = false
-	defaultNoVerifySSL = false
-	defaultNoUserAgent = false
-	defaultNoColor     = false
-	defaultDebug       = false
+	defaultSearxngURL     = "https://searxng.example.com"
+	defaultResultCount    = 10
+	defaultSafeSearch     = "strict"
+	defaultHTTPMethod     = "GET"
+	defaultTimeout        = 30.0
+	defaultExpand         = false
+	defaultNoVerifySSL    = false
+	defaultNoUserAgent    = false
+	defaultNoColor        = false
+	defaultDebug          = false
+	defaultDefaultOutput  = ""
+	defaultHistoryEnabled = true
+	defaultMaxHistory     = 100
 )
 
 var defaultURLHandlers = map[string]string{
@@ -61,16 +67,19 @@ func getConfigDir() string {
 
 func getDefaultConfig() *Config {
 	return &Config{
-		SearxngURL:  "",
-		ResultCount: defaultResultCount,
-		SafeSearch:  defaultSafeSearch,
-		Expand:      defaultExpand,
-		HTTPMethod:  defaultHTTPMethod,
-		Timeout:     defaultTimeout,
-		NoVerifySSL: defaultNoVerifySSL,
-		NoUserAgent: defaultNoUserAgent,
-		NoColor:     defaultNoColor,
-		Debug:       defaultDebug,
+		SearxngURL:     "",
+		ResultCount:    defaultResultCount,
+		SafeSearch:     defaultSafeSearch,
+		Expand:         defaultExpand,
+		HTTPMethod:     defaultHTTPMethod,
+		Timeout:        defaultTimeout,
+		NoVerifySSL:    defaultNoVerifySSL,
+		NoUserAgent:    defaultNoUserAgent,
+		NoColor:        defaultNoColor,
+		Debug:          defaultDebug,
+		DefaultOutput:  defaultDefaultOutput,
+		HistoryEnabled: defaultHistoryEnabled,
+		MaxHistory:     defaultMaxHistory,
 	}
 }
 
