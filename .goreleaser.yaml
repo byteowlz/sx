@@ -57,25 +57,22 @@ release:
     Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
 
 # ============================================================================
-# Homebrew tap (Cask)
+# Homebrew tap (Formula)
 # ============================================================================
 
-homebrew_casks:
+brews:
   - repository:
       owner: byteowlz
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    directory: Formula
     homepage: "https://github.com/byteowlz/sx"
     description: "Multi-engine web search from the command line"
     license: "MIT"
-    binaries:
-      - sx
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/sx"]
-          end
+    test: |
+      system "#{bin}/sx", "--version"
+    install: |
+      bin.install "sx"
 
 # AUR publishing is handled by dedicated GitHub Actions jobs
 # (publish-aur-bin and publish-aur-source in release.yml)
