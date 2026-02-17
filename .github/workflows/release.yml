@@ -42,7 +42,7 @@ jobs:
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
 
   publish-aur-source:
-    name: Publish to AUR (sx)
+    name: Publish to AUR (sx-search)
     needs: release
     runs-on: ubuntu-latest
     steps:
@@ -50,13 +50,13 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
-      - name: Generate PKGBUILD for sx
+      - name: Generate PKGBUILD for sx-search
         run: |
           VERSION="${RELEASE_TAG#v}"
 
           cat > PKGBUILD << 'PKGEOF'
           # Maintainer: Tommy Falkowski <tommy@byteowlz.com>
-          pkgname=sx
+          pkgname=sx-search
           pkgver=VERSION_PLACEHOLDER
           pkgrel=1
           pkgdesc="Multi-engine web search from the command line"
@@ -64,19 +64,19 @@ jobs:
           url="https://github.com/byteowlz/sx"
           license=('MIT')
           provides=('sx')
-          conflicts=('sx-bin')
+          conflicts=('sx' 'sx-search-bin')
           makedepends=('go')
-          source=("${pkgname}-${pkgver}.tar.gz::https://github.com/byteowlz/sx/archive/v${pkgver}.tar.gz")
+          source=("sx-${pkgver}.tar.gz::https://github.com/byteowlz/sx/archive/v${pkgver}.tar.gz")
           sha256sums=('SKIP')
 
           build() {
-              cd "${pkgname}-${pkgver}"
+              cd "sx-${pkgver}"
               export CGO_ENABLED=0
               go build -ldflags="-s -w" -o sx .
           }
 
           package() {
-              cd "${pkgname}-${pkgver}"
+              cd "sx-${pkgver}"
               install -Dm755 sx "${pkgdir}/usr/bin/sx"
               install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
           }
@@ -84,10 +84,10 @@ jobs:
 
           sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" PKGBUILD
 
-      - name: Publish sx to AUR
+      - name: Publish sx-search to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
         with:
-          pkgname: sx
+          pkgname: sx-search
           pkgbuild: ./PKGBUILD
           commit_username: byteowlz
           commit_email: ${{ secrets.AUR_EMAIL }}
@@ -95,7 +95,7 @@ jobs:
           commit_message: "Update to ${{ env.RELEASE_TAG }}"
 
   publish-aur-bin:
-    name: Publish to AUR (sx-bin)
+    name: Publish to AUR (sx-search-bin)
     needs: release
     runs-on: ubuntu-latest
     steps:
@@ -103,7 +103,7 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
-      - name: Generate PKGBUILD for sx-bin
+      - name: Generate PKGBUILD for sx-search-bin
         run: |
           VERSION="${RELEASE_TAG#v}"
 
@@ -114,7 +114,7 @@ jobs:
 
           cat > PKGBUILD << 'PKGEOF'
           # Maintainer: Tommy Falkowski <tommy@byteowlz.com>
-          pkgname=sx-bin
+          pkgname=sx-search-bin
           pkgver=VERSION_PLACEHOLDER
           pkgrel=1
           pkgdesc="Multi-engine web search from the command line"
@@ -122,7 +122,7 @@ jobs:
           url="https://github.com/byteowlz/sx"
           license=('MIT')
           provides=('sx')
-          conflicts=('sx')
+          conflicts=('sx' 'sx-search')
           source=("sx-${pkgver}.tar.gz::https://github.com/byteowlz/sx/releases/download/v${pkgver}/sx_Linux_x86_64.tar.gz")
           sha256sums=('SHA256_PLACEHOLDER')
 
@@ -134,10 +134,10 @@ jobs:
           sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" PKGBUILD
           sed -i "s/SHA256_PLACEHOLDER/${SHA256}/g" PKGBUILD
 
-      - name: Publish sx-bin to AUR
+      - name: Publish sx-search-bin to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
         with:
-          pkgname: sx-bin
+          pkgname: sx-search-bin
           pkgbuild: ./PKGBUILD
           commit_username: byteowlz
           commit_email: ${{ secrets.AUR_EMAIL }}
