@@ -40,7 +40,59 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
-          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+  publish-aur-source:
+    name: Publish to AUR (sx)
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Generate PKGBUILD for sx
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+
+          cat > PKGBUILD << 'PKGEOF'
+          # Maintainer: Tommy Falkowski <tommy@byteowlz.com>
+          pkgname=sx
+          pkgver=VERSION_PLACEHOLDER
+          pkgrel=1
+          pkgdesc="Multi-engine web search from the command line"
+          arch=('x86_64' 'aarch64')
+          url="https://github.com/byteowlz/sx"
+          license=('MIT')
+          provides=('sx')
+          conflicts=('sx-bin')
+          makedepends=('go')
+          source=("${pkgname}-${pkgver}.tar.gz::https://github.com/byteowlz/sx/archive/v${pkgver}.tar.gz")
+          sha256sums=('SKIP')
+
+          build() {
+              cd "${pkgname}-${pkgver}"
+              export CGO_ENABLED=0
+              go build -ldflags="-s -w" -o sx .
+          }
+
+          package() {
+              cd "${pkgname}-${pkgver}"
+              install -Dm755 sx "${pkgdir}/usr/bin/sx"
+              install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+          }
+          PKGEOF
+
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" PKGBUILD
+
+      - name: Publish sx to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: sx
+          pkgbuild: ./PKGBUILD
+          commit_username: byteowlz
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ env.RELEASE_TAG }}"
 
   publish-aur-bin:
     name: Publish to AUR (sx-bin)

@@ -74,24 +74,5 @@ brews:
     install: |
       bin.install "sx"
 
-# ============================================================================
-# AUR (source build)
-# ============================================================================
-
-aurs:
-  - name: sx
-    homepage: "https://github.com/byteowlz/sx"
-    description: "Multi-engine web search from the command line"
-    maintainers:
-      - "Tommy Falkowski <tommy@byteowlz.com>"
-    license: "MIT"
-    private_key: "{{ .Env.AUR_SSH_PRIVATE_KEY }}"
-    git_url: "ssh://aur@aur.archlinux.org/sx.git"
-    depends:
-      - go
-    package: |
-      install -Dm755 sx "${pkgdir}/usr/bin/sx"
-      install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/sx/LICENSE"
-    commit_author:
-      name: byteowlz
-      email: tommy@byteowlz.com
+# AUR publishing is handled by dedicated GitHub Actions jobs
+# (publish-aur-bin and publish-aur-source in release.yml)
