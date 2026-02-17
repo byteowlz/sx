@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g., v2.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+  publish-aur-bin:
+    name: Publish to AUR (sx-bin)
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Generate PKGBUILD for sx-bin
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+
+          # Download checksums from the release
+          curl -sL "https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/checksums.txt" -o checksums.txt
+
+          SHA256=$(grep "sx_Linux_x86_64.tar.gz" checksums.txt | cut -d' ' -f1)
+
+          cat > PKGBUILD << 'PKGEOF'
+          # Maintainer: Tommy Falkowski <tommy@byteowlz.com>
+          pkgname=sx-bin
+          pkgver=VERSION_PLACEHOLDER
+          pkgrel=1
+          pkgdesc="Multi-engine web search from the command line"
+          arch=('x86_64')
+          url="https://github.com/byteowlz/sx"
+          license=('MIT')
+          provides=('sx')
+          conflicts=('sx')
+          source=("sx-${pkgver}.tar.gz::https://github.com/byteowlz/sx/releases/download/v${pkgver}/sx_Linux_x86_64.tar.gz")
+          sha256sums=('SHA256_PLACEHOLDER')
+
+          package() {
+              install -Dm755 sx "$pkgdir/usr/bin/sx"
+          }
+          PKGEOF
+
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" PKGBUILD
+          sed -i "s/SHA256_PLACEHOLDER/${SHA256}/g" PKGBUILD
+
+      - name: Publish sx-bin to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: sx-bin
+          pkgbuild: ./PKGBUILD
+          commit_username: byteowlz
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ env.RELEASE_TAG }}"
+
+  publish-scoop:
+    name: Publish to Scoop
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Scoop bucket
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          repository: byteowlz/scoop-bucket
+          event-type: update-manifest
+          client-payload: |
+            {
+              "name": "sx",
+              "version": "${{ env.RELEASE_TAG }}",
+              "repo": "${{ github.repository }}"
+            }

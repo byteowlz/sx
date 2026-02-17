@@ -1,0 +1,136 @@
+# tool.toml - sx metadata for byteowlz.com/toolz/sx
+
+"$schema" = "https://raw.githubusercontent.com/byteowlz/schemas/refs/heads/main/govnr/tool.schema.json"
+
+name = "sx"
+title = "sx"
+tagline = "Multi-engine web search from the command line"
+
+description = """
+Search the web from your terminal with multiple backends (SearXNG, Brave Search, Tavily) and automatic fallback.
+
+Supports colorized terminal output, interactive and non-interactive modes, search categories (news, videos, images, etc.), safe search, time-range filtering, JSON output, built-in content extraction to markdown, anti-bot detection, query history, and shell completions.
+
+Built for both humans and AI agents. Pipe URLs to other tools, extract page content as markdown, or integrate into automation workflows.
+"""
+
+language = "go"
+category = "toolz"
+version = "2.1.0"
+license = "MIT"
+
+# ============================================================================
+# Installation
+# ============================================================================
+
+[install]
+homebrew = "byteowlz/tap/sx"
+aur = "sx"
+aur_bin = "sx-bin"
+scoop = "byteowlz/sx"
+
+# ============================================================================
+# Links
+# ============================================================================
+
+[links]
+github = "https://github.com/byteowlz/sx"
+
+# ============================================================================
+# Features
+# ============================================================================
+
+[[features]]
+title = "Multiple Search Backends"
+description = "SearXNG, Brave Search, and Tavily with automatic fallback when the primary engine is unreachable"
+
+[[features]]
+title = "Built-in Content Extraction"
+description = "Fetch search results and convert pages to clean markdown with --text"
+
+[[features]]
+title = "Multiple Output Formats"
+description = "Colorized terminal output, JSON, links-only, and raw HTML modes"
+
+[[features]]
+title = "Search Categories & Filtering"
+description = "General, news, images, videos, science, social media, files with safe search and time-range filtering"
+
+[[features]]
+title = "Anti-bot Detection"
+description = "Rotating user agents, realistic headers, and random delays for reliable page fetching"
+
+[[features]]
+title = "Query History"
+description = "Searchable history of past queries with sx history"
+
+# ============================================================================
+# Examples
+# ============================================================================
+
+[[examples]]
+title = "Quick Start"
+language = "bash"
+code = """
+# Basic search
+sx "why is the sky blue"
+
+# Limit results
+sx "golang tutorials" -n 5
+
+# Use a specific backend
+sx "query" --engine brave
+"""
+
+[[examples]]
+title = "Content Extraction"
+language = "bash"
+code = """
+# Top result as markdown
+sx "golang channels tutorial" --text --top
+
+# Multiple results saved to file
+sx "rust ownership" --text -n 3 -o results.md
+
+# Get URLs only for piping
+sx "rust tutorials" -L -n 3 | xargs open
+"""
+
+[[examples]]
+title = "Categories & Filtering"
+language = "bash"
+code = """
+# News search
+sx "query" -N
+
+# Videos
+sx "query" -V
+
+# Time-range filter
+sx "query" -r week
+
+# Site-specific search
+sx "query" -w example.com
+
+# JSON output
+sx "query" --json
+"""
+
+# ============================================================================
+# Media
+# ============================================================================
+
+[media]
+# icon = "assets/icon.svg"
+screenshot = "banner.png"
+
+# ============================================================================
+# Metadata
+# ============================================================================
+
+[meta]
+keywords = ["search", "cli", "web-search", "searxng", "brave", "tavily", "terminal"]
+platforms = ["linux", "macos", "windows"]
+related = ["scrpr", "byt"]
+status = "stable"
+listed = true
