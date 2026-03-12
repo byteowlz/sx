@@ -12,6 +12,8 @@ import (
 type Config struct {
 	Schema          string   `toml:"$schema,omitempty"`
 	SearxngURL      string   `toml:"searxng_url"`
+	SearxngURLs     []string `toml:"searxng_urls,omitempty"`
+	SearxngStrategy string   `toml:"searxng_strategy,omitempty"`
 	SearxngUsername string   `toml:"searxng_username,omitempty"`
 	SearxngPassword string   `toml:"searxng_password,omitempty"`
 	ResultCount     int      `toml:"result_count"`
@@ -32,10 +34,10 @@ type Config struct {
 	MaxHistory      int      `toml:"max_history"`
 
 	// Multi-engine support
-	Engine          string          `toml:"engine"`
-	FallbackEngines []string        `toml:"fallback_engines,omitempty"`
-	EnginesBrave    BraveConfig     `toml:"engines_brave"`
-	EnginesTavily   TavilyConfig    `toml:"engines_tavily"`
+	Engine          string       `toml:"engine"`
+	FallbackEngines []string     `toml:"fallback_engines,omitempty"`
+	EnginesBrave    BraveConfig  `toml:"engines_brave"`
+	EnginesTavily   TavilyConfig `toml:"engines_tavily"`
 }
 
 // BraveConfig holds Brave Search API configuration
@@ -52,19 +54,20 @@ type TavilyConfig struct {
 }
 
 const (
-	defaultSearxngURL     = "https://searxng.example.com"
-	defaultResultCount    = 10
-	defaultSafeSearch     = "strict"
-	defaultHTTPMethod     = "GET"
-	defaultTimeout        = 30.0
-	defaultExpand         = false
-	defaultNoVerifySSL    = false
-	defaultNoUserAgent    = false
-	defaultNoColor        = false
-	defaultDebug          = false
-	defaultDefaultOutput  = ""
-	defaultHistoryEnabled = true
-	defaultMaxHistory     = 100
+	defaultSearxngURL      = "https://searxng.example.com"
+	defaultSearxngStrategy = "ordered"
+	defaultResultCount     = 10
+	defaultSafeSearch      = "strict"
+	defaultHTTPMethod      = "GET"
+	defaultTimeout         = 30.0
+	defaultExpand          = false
+	defaultNoVerifySSL     = false
+	defaultNoUserAgent     = false
+	defaultNoColor         = false
+	defaultDebug           = false
+	defaultDefaultOutput   = ""
+	defaultHistoryEnabled  = true
+	defaultMaxHistory      = 100
 )
 
 var defaultURLHandlers = map[string]string{
@@ -87,20 +90,21 @@ func getConfigDir() string {
 
 func getDefaultConfig() *Config {
 	return &Config{
-		SearxngURL:     "",
-		ResultCount:    defaultResultCount,
-		SafeSearch:     defaultSafeSearch,
-		Expand:         defaultExpand,
-		HTTPMethod:     defaultHTTPMethod,
-		Timeout:        defaultTimeout,
-		NoVerifySSL:    defaultNoVerifySSL,
-		NoUserAgent:    defaultNoUserAgent,
-		NoColor:        defaultNoColor,
-		Debug:          defaultDebug,
-		DefaultOutput:  defaultDefaultOutput,
-		HistoryEnabled: defaultHistoryEnabled,
-		MaxHistory:     defaultMaxHistory,
-		Engine:         "searxng",
+		SearxngURL:      "",
+		SearxngStrategy: defaultSearxngStrategy,
+		ResultCount:     defaultResultCount,
+		SafeSearch:      defaultSafeSearch,
+		Expand:          defaultExpand,
+		HTTPMethod:      defaultHTTPMethod,
+		Timeout:         defaultTimeout,
+		NoVerifySSL:     defaultNoVerifySSL,
+		NoUserAgent:     defaultNoUserAgent,
+		NoColor:         defaultNoColor,
+		Debug:           defaultDebug,
+		DefaultOutput:   defaultDefaultOutput,
+		HistoryEnabled:  defaultHistoryEnabled,
+		MaxHistory:      defaultMaxHistory,
+		Engine:          "searxng",
 		EnginesTavily: TavilyConfig{
 			SearchDepth: "basic",
 		},
@@ -120,6 +124,11 @@ func loadConfig() (*Config, error) {
 		}
 	}
 
+	config.SearxngURLs = deduplicateStrings(config.SearxngURLs)
+	if config.SearxngStrategy == "" {
+		config.SearxngStrategy = defaultSearxngStrategy
+	}
+
 	return config, nil
 }
 
@@ -133,6 +142,35 @@ func ensureConfig() error {
 	}
 
 	return nil
+}
+
+func deduplicateStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func hasSearxngConfigured(config *Config) bool {
+	if strings.TrimSpace(config.SearxngURL) != "" {
+		return true
+	}
+	for _, u := range config.SearxngURLs {
+		if strings.TrimSpace(u) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func createConfigFile(configDir, configFile string) error {
@@ -151,16 +189,17 @@ func createConfigFile(configDir, configFile string) error {
 
 	// Create default config
 	config := &Config{
-		SearxngURL:  searxngURL,
-		ResultCount: defaultResultCount,
-		SafeSearch:  defaultSafeSearch,
-		Expand:      defaultExpand,
-		HTTPMethod:  defaultHTTPMethod,
-		Timeout:     defaultTimeout,
-		NoVerifySSL: defaultNoVerifySSL,
-		NoUserAgent: defaultNoUserAgent,
-		NoColor:     defaultNoColor,
-		Debug:       defaultDebug,
+		SearxngURL:      searxngURL,
+		SearxngStrategy: defaultSearxngStrategy,
+		ResultCount:     defaultResultCount,
+		SafeSearch:      defaultSafeSearch,
+		Expand:          defaultExpand,
+		HTTPMethod:      defaultHTTPMethod,
+		Timeout:         defaultTimeout,
+		NoVerifySSL:     defaultNoVerifySSL,
+		NoUserAgent:     defaultNoUserAgent,
+		NoColor:         defaultNoColor,
+		Debug:           defaultDebug,
 	}
 
 	// Write config to file

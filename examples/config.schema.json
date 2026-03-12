@@ -25,7 +25,18 @@
     },
     "searxng_url": {
       "type": "string",
-      "description": "SearXNG instance URL"
+      "description": "Primary SearXNG instance URL"
+    },
+    "searxng_urls": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Additional SearXNG instance URLs for failover"
+    },
+    "searxng_strategy": {
+      "type": "string",
+      "enum": ["ordered", "parallel-fastest"],
+      "default": "ordered",
+      "description": "SearXNG multi-instance strategy"
     },
     "searxng_username": {
       "type": "string",

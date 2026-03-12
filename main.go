@@ -15,7 +15,7 @@ import (
 	"sx/backends"
 )
 
-const version = "2.1.0"
+const version = "2.2.0"
 
 var (
 	config     *Config
@@ -51,7 +51,9 @@ func main() {
 	}
 
 	// Add flags
-	rootCmd.Flags().StringVar(&config.SearxngURL, "searxng-url", config.SearxngURL, "SearXNG instance URL")
+	rootCmd.Flags().StringVar(&config.SearxngURL, "searxng-url", config.SearxngURL, "Primary SearXNG instance URL")
+	rootCmd.Flags().StringSliceVar(&config.SearxngURLs, "searxng-urls", config.SearxngURLs, "Additional SearXNG instance URLs for failover")
+	rootCmd.Flags().StringVar(&config.SearxngStrategy, "searxng-strategy", config.SearxngStrategy, "SearXNG instance strategy (ordered, parallel-fastest)")
 	rootCmd.Flags().StringSliceVar(&searchOpts.Categories, "categories", nil, fmt.Sprintf("list of categories to search in: %s", strings.Join(searxngCategories, ", ")))
 	rootCmd.Flags().BoolVar(&searchOpts.JSON, "json", false, "output search results in JSON format")
 	rootCmd.Flags().BoolVarP(&searchOpts.Clean, "clean", "c", false, "omit empty and null values in JSON output")
@@ -249,7 +251,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 		config.ResultCount = 1
 	}
 
-	// Validate config: only require searxng_url if using searxng engine
+	// Validate config: require at least one SearXNG instance when using searxng engine
 	engineToUse := searchOpts.ExplicitEngine
 	if engineToUse == "" {
 		engineToUse = config.Engine
@@ -257,9 +259,9 @@ func runSearch(cmd *cobra.Command, args []string) {
 	if engineToUse == "" {
 		engineToUse = "searxng"
 	}
-	if engineToUse == "searxng" && config.SearxngURL == "" && len(config.FallbackEngines) == 0 {
-		fmt.Fprintf(os.Stderr, "Error: searxng_url is not set in config and no fallback engines configured\n")
-		fmt.Fprintf(os.Stderr, "Set searxng_url in config.toml or use --engine brave/tavily\n")
+	if engineToUse == "searxng" && !hasSearxngConfigured(config) {
+		fmt.Fprintf(os.Stderr, "Error: no SearXNG instance configured (set searxng_url or searxng_urls)\n")
+		fmt.Fprintf(os.Stderr, "Set searxng_url/searxng_urls in config.toml or use --engine brave/tavily\n")
 		return
 	}
 

@@ -29,15 +29,32 @@ var categoryAliases = map[string]string{
 func initBackendManager(config *Config) *backends.Manager {
 	mgr := backends.NewManager()
 
-	// Register SearXNG backend
-	searxng := backends.NewSearxngBackend(
-		config.SearxngURL,
+	// Register SearXNG backend (single or multi-instance)
+	searxngURLs := make([]string, 0, len(config.SearxngURLs)+1)
+	if config.SearxngURL != "" {
+		searxngURLs = append(searxngURLs, config.SearxngURL)
+	}
+	searxngURLs = append(searxngURLs, config.SearxngURLs...)
+	searxngURLs = backends.DeduplicateSearxngURLs(searxngURLs)
+
+	searxngStrategy := config.SearxngStrategy
+	if searxngStrategy == "" {
+		searxngStrategy = backends.SearxngStrategyOrdered
+	}
+	if searxngStrategy != backends.SearxngStrategyOrdered && searxngStrategy != backends.SearxngStrategyParallelFastest {
+		fmt.Fprintf(os.Stderr, "Warning: invalid searxng_strategy %q, using %q\n", searxngStrategy, backends.SearxngStrategyOrdered)
+		searxngStrategy = backends.SearxngStrategyOrdered
+	}
+
+	searxng := backends.NewMultiSearxngBackend(
+		searxngURLs,
 		config.SearxngUsername,
 		config.SearxngPassword,
 		config.HTTPMethod,
 		time.Duration(config.Timeout)*time.Second,
 		config.NoVerifySSL,
 		config.NoUserAgent,
+		searxngStrategy,
 	)
 	mgr.Register(searxng)
 

@@ -13,6 +13,7 @@ This is a Go port of the original Python [searxngr](https://github.com/scross01/
 ## Key Features
 
 - **Multiple search backends** - SearXNG, Brave Search, Tavily with automatic fallback
+- **Multi-instance SearXNG failover** - ordered or parallel-fastest strategy
 - **Terminal-based interface** with colorized output
 - **Non-interactive by default** for scripting; `-i` for interactive mode
 - **Search engine selection** (bing, duckduckgo, google, etc. via SearXNG)
@@ -58,6 +59,8 @@ fallback_engines = ["brave", "tavily"]
 
 # SearXNG instance settings
 searxng_url = "https://searxng.example.com"
+searxng_urls = ["https://searxng-backup-1.example.com", "https://searxng-backup-2.example.com"]
+searxng_strategy = "ordered" # ordered or parallel-fastest
 # searxng_username = ""
 # searxng_password = ""
 
@@ -215,9 +218,11 @@ Flags:
       --noua                 disable user agent
   -n, --num int              results per page (default 10)
   -o, --output string        save output to file
-      --safe-search string   none, moderate, strict (default "strict")
-      --searxng-url string   SearXNG instance URL
-  -w, --site string          search within a specific site
+      --safe-search string      none, moderate, strict (default "strict")
+      --searxng-strategy string SearXNG instance strategy (ordered, parallel-fastest)
+      --searxng-url string      Primary SearXNG instance URL
+      --searxng-urls strings    Additional SearXNG instance URLs for failover
+  -w, --site string             search within a specific site
   -S, --social               social media category shortcut
   -T, --text                 fetch pages and convert to markdown
   -r, --time-range string    day, week, month, year

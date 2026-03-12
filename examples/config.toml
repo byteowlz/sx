@@ -9,8 +9,17 @@ engine = "searxng"
 # Fallback engines tried in order if primary fails
 fallback_engines = ["brave", "tavily"]
 
-# SearXNG instance URL (required when engine = "searxng")
+# Primary SearXNG instance URL (required when engine = "searxng")
 searxng_url = "https://searxng.example.com"
+
+# Additional SearXNG instances for failover (optional)
+searxng_urls = [
+  "https://searxng-backup-1.example.com",
+  "https://searxng-backup-2.example.com"
+]
+
+# Multi-instance strategy: ordered, parallel-fastest (default: ordered)
+searxng_strategy = "ordered"
 
 # Optional basic authentication for SearXNG
 # searxng_username = "username"
