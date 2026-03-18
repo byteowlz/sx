@@ -16,7 +16,7 @@ Built for both humans and AI agents. Pipe URLs to other tools, extract page cont
 
 language = "go"
 category = "toolz"
-version = "2.2.0"
+version = "2.3.0"
 license = "MIT"
 
 # ============================================================================

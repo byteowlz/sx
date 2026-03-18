@@ -3,11 +3,11 @@
 # sx configuration file
 # Copy to $XDG_CONFIG_HOME/sx/config.toml (typically ~/.config/sx/config.toml)
 
-# Primary search engine (searxng, brave, tavily)
+# Primary search engine (searxng, exa, jina, brave, tavily)
 engine = "searxng"
 
 # Fallback engines tried in order if primary fails
-fallback_engines = ["brave", "tavily"]
+fallback_engines = ["exa", "jina", "brave", "tavily"]
 
 # Primary SearXNG instance URL (required when engine = "searxng")
 searxng_url = "https://searxng.example.com"
@@ -73,15 +73,29 @@ max_history = 100
 # macOS: "open", Linux: "xdg-open", Windows: "explorer"
 # url_handler = "open"
 
+# Exa Search (API or MCP)
+[engines_exa]
+mode = "auto"                 # auto, api, mcp
+api_key = ""                  # optional, or set EXA_API_KEY env var
+mcp_url = ""                  # optional MCP endpoint URL (e.g. https://mcp.exa.ai/mcp)
+mcp_tool = "exa-web-search"   # MCP tool to call
+num_results = 10
+
+# Jina Search (keyless or API key)
+[engines_jina]
+api_key = ""                  # optional, or set JINA_API_KEY env var
+allow_keyless = true
+base_url = "https://s.jina.ai"
+
 # Brave Search API (https://api.search.brave.com/)
 # Free tier: 2,000 requests/month
 [engines_brave]
-api_key = ""  # or set BRAVE_API_KEY env var
+api_key = ""                  # optional, or set BRAVE_API_KEY env var
 
 # Tavily Search API (https://tavily.com/)
 # Free tier: 1,000 credits/month
 [engines_tavily]
-api_key = ""                  # or set TAVILY_API_KEY env var
+api_key = ""                  # optional, or set TAVILY_API_KEY env var
 search_depth = "basic"        # basic (1 credit) or advanced (2 credits)
-include_raw_content = false   # return full page content with results
-include_answer = false        # return a direct answer
+include_raw_content = false    # return full page content with results
+include_answer = false         # return a direct answer

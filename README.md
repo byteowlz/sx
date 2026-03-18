@@ -4,15 +4,15 @@ Multi-engine web search from the command line
 
 `sx` is a CLI tool for searching the web from your terminal. It supports
 multiple search backends -- [SearXNG](https://github.com/searxng/searxng)
-(self-hosted), [Brave Search](https://api.search.brave.com/) and
-[Tavily](https://tavily.com/) -- with automatic fallback when the primary engine
-is unreachable.
+(self-hosted), [Exa](https://exa.ai/), [Jina](https://jina.ai/),
+[Brave Search](https://api.search.brave.com/) and [Tavily](https://tavily.com/)
+-- with automatic fallback when the primary engine is unreachable.
 
 This is a Go port of the original Python [searxngr](https://github.com/scross01/searxngr) project, extended with multi-engine support.
 
 ## Key Features
 
-- **Multiple search backends** - SearXNG, Brave Search, Tavily with automatic fallback
+- **Multiple search backends** - SearXNG, Exa, Jina, Brave Search, Tavily with automatic fallback
 - **Multi-instance SearXNG failover** - ordered or parallel-fastest strategy
 - **Terminal-based interface** with colorized output
 - **Non-interactive by default** for scripting; `-i` for interactive mode
@@ -51,11 +51,11 @@ Created automatically on first run.
 ```toml
 # sx configuration file
 
-# Primary search engine (searxng, brave, tavily)
+# Primary search engine (searxng, brave, tavily, exa, jina)
 engine = "searxng"
 
 # Fallback engines tried in order if primary fails
-fallback_engines = ["brave", "tavily"]
+fallback_engines = ["exa", "jina", "brave", "tavily"]
 
 # SearXNG instance settings
 searxng_url = "https://searxng.example.com"
@@ -92,6 +92,20 @@ api_key = ""                  # or set TAVILY_API_KEY env var
 search_depth = "basic"        # basic (1 credit) or advanced (2 credits)
 include_raw_content = false   # return full page content with results
 include_answer = false        # return a direct answer
+
+# Exa Search (API + MCP)
+[engines_exa]
+mode = "auto"                # auto, api, mcp
+api_key = ""                 # or set EXA_API_KEY env var
+mcp_url = ""                 # optional MCP HTTP endpoint
+mcp_tool = "exa-web-search"  # MCP tool name
+num_results = 10
+
+# Jina Search
+[engines_jina]
+api_key = ""                 # or set JINA_API_KEY env var
+allow_keyless = true
+base_url = "https://s.jina.ai"
 ```
 
 ### API Keys via Environment Variables
@@ -99,6 +113,8 @@ include_answer = false        # return a direct answer
 ```shell
 export BRAVE_API_KEY="your-brave-key"
 export TAVILY_API_KEY="tvly-your-tavily-key"
+export EXA_API_KEY="your-exa-key"
+export JINA_API_KEY="your-jina-key"
 ```
 
 ## Usage
@@ -114,6 +130,8 @@ sx "golang tutorials" -n 5
 
 ```shell
 # Use a specific backend
+sx "query" --engine exa
+sx "query" --engine jina
 sx "query" --engine brave
 sx "query" --engine tavily
 
@@ -199,7 +217,7 @@ Flags:
       --clean                omit empty/null values in JSON output
       --debug                show debug output
   -e, --engines strings      SearXNG engines to use
-      --engine string        search backend (searxng, brave, tavily)
+      --engine string        search backend (searxng, brave, tavily, exa, jina)
   -x, --expand               show full URLs in results
   -F, --files                files category shortcut
   -j, --first                open first result in browser
@@ -238,6 +256,8 @@ Flags:
 | Backend | Auth | Free Tier | Best For |
 |---------|------|-----------|----------|
 | **SearXNG** | None (self-hosted) | Unlimited | Privacy, full control |
+| **Exa** | API key or MCP | Varies by plan/MCP setup | Research-focused search, MCP workflows |
+| **Jina** | Optional API key | Keyless best-effort | Fallback without mandatory key |
 | **Brave** | API key | 2,000 req/month | Fallback, quick setup |
 | **Tavily** | API key | 1,000 credits/month | LLM workflows, rich content |
 

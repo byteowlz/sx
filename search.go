@@ -87,6 +87,34 @@ func initBackendManager(config *Config) *backends.Manager {
 	)
 	mgr.Register(tavily)
 
+	// Register Exa backend (API + MCP + auto mode)
+	exaAPIKey := config.EnginesExa.APIKey
+	if envKey := os.Getenv("EXA_API_KEY"); envKey != "" {
+		exaAPIKey = envKey
+	}
+	exa := backends.NewExaBackend(
+		config.EnginesExa.Mode,
+		exaAPIKey,
+		time.Duration(config.Timeout)*time.Second,
+		config.EnginesExa.MCPURL,
+		config.EnginesExa.MCPTool,
+		config.EnginesExa.NumResults,
+	)
+	mgr.Register(exa)
+
+	// Register Jina backend (keyed or keyless)
+	jinaAPIKey := config.EnginesJina.APIKey
+	if envKey := os.Getenv("JINA_API_KEY"); envKey != "" {
+		jinaAPIKey = envKey
+	}
+	jina := backends.NewJinaBackend(
+		jinaAPIKey,
+		time.Duration(config.Timeout)*time.Second,
+		config.EnginesJina.AllowKeyless,
+		config.EnginesJina.BaseURL,
+	)
+	mgr.Register(jina)
+
 	// Set primary engine
 	engine := config.Engine
 	if engine == "" {
@@ -181,5 +209,5 @@ func expandTimeRange(timeRange string) string {
 
 // validEngineNames returns all valid engine names for help text
 func validEngineNames() string {
-	return strings.Join([]string{"searxng", "brave", "tavily"}, ", ")
+	return strings.Join([]string{"searxng", "brave", "tavily", "exa", "jina"}, ", ")
 }

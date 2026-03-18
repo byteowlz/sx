@@ -11,7 +11,7 @@
     },
     "engine": {
       "type": "string",
-      "enum": ["searxng", "brave", "tavily"],
+      "enum": ["searxng", "brave", "tavily", "exa", "jina"],
       "default": "searxng",
       "description": "Primary search engine backend"
     },
@@ -19,7 +19,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["searxng", "brave", "tavily"]
+        "enum": ["searxng", "brave", "tavily", "exa", "jina"]
       },
       "description": "Fallback engines tried in order if primary fails"
     },
@@ -114,7 +114,7 @@
     "categories": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Default search categories (general, news, videos, images, music, map, science, it, files, social+media)"
+      "description": "Default search categories"
     },
     "engines": {
       "type": "array",
@@ -127,7 +127,13 @@
     },
     "url_handler": {
       "type": "string",
-      "description": "URL handler command (auto-detected: open on macOS, xdg-open on Linux)"
+      "description": "URL handler command"
+    },
+    "engines_exa": {
+      "$ref": "#/definitions/ExaConfig"
+    },
+    "engines_jina": {
+      "$ref": "#/definitions/JinaConfig"
     },
     "engines_brave": {
       "$ref": "#/definitions/BraveConfig"
@@ -138,6 +144,60 @@
   },
   "additionalProperties": false,
   "definitions": {
+    "ExaConfig": {
+      "type": "object",
+      "description": "Exa backend configuration (API and MCP)",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["auto", "api", "mcp"],
+          "default": "auto",
+          "description": "Exa mode selection"
+        },
+        "api_key": {
+          "type": "string",
+          "description": "Exa API key (or set EXA_API_KEY env var)"
+        },
+        "mcp_url": {
+          "type": "string",
+          "description": "MCP HTTP endpoint URL for Exa"
+        },
+        "mcp_tool": {
+          "type": "string",
+          "default": "exa-web-search",
+          "description": "MCP tool name for Exa search"
+        },
+        "num_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 10,
+          "description": "Default number of Exa results"
+        }
+      },
+      "additionalProperties": false
+    },
+    "JinaConfig": {
+      "type": "object",
+      "description": "Jina backend configuration",
+      "properties": {
+        "api_key": {
+          "type": "string",
+          "description": "Jina API key (or set JINA_API_KEY env var)"
+        },
+        "allow_keyless": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow keyless mode"
+        },
+        "base_url": {
+          "type": "string",
+          "default": "https://s.jina.ai",
+          "description": "Jina base URL"
+        }
+      },
+      "additionalProperties": false
+    },
     "BraveConfig": {
       "type": "object",
       "description": "Brave Search API configuration",

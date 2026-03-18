@@ -80,8 +80,8 @@ func TestValidEngineNames(t *testing.T) {
 	if names == "" {
 		t.Error("validEngineNames() should not be empty")
 	}
-	// Should contain all three engines
-	for _, engine := range []string{"searxng", "brave", "tavily"} {
+	// Should contain all configured engine names
+	for _, engine := range []string{"searxng", "brave", "tavily", "exa", "jina"} {
 		if !contains(names, engine) {
 			t.Errorf("validEngineNames() should contain %q, got %q", engine, names)
 		}

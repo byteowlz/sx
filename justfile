@@ -71,6 +71,12 @@ update:
     go get -u ./...
     go mod tidy
 
+# Copy config schema to central schemas repository
+update-schema:
+    mkdir -p ../schemas/sx
+    cp examples/config.schema.json ../schemas/sx/sx.config.schema.json
+    @echo "Copied examples/config.schema.json -> ../schemas/sx/sx.config.schema.json"
+
 # Tidy module
 tidy:
     go mod tidy

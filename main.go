@@ -15,7 +15,7 @@ import (
 	"sx/backends"
 )
 
-const version = "2.2.0"
+const version = "2.3.0"
 
 var (
 	config     *Config
@@ -261,7 +261,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 	}
 	if engineToUse == "searxng" && !hasSearxngConfigured(config) {
 		fmt.Fprintf(os.Stderr, "Error: no SearXNG instance configured (set searxng_url or searxng_urls)\n")
-		fmt.Fprintf(os.Stderr, "Set searxng_url/searxng_urls in config.toml or use --engine brave/tavily\n")
+		fmt.Fprintf(os.Stderr, "Set searxng_url/searxng_urls in config.toml or use --engine brave/tavily/exa/jina\n")
 		return
 	}
 

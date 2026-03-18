@@ -38,6 +38,8 @@ type Config struct {
 	FallbackEngines []string     `toml:"fallback_engines,omitempty"`
 	EnginesBrave    BraveConfig  `toml:"engines_brave"`
 	EnginesTavily   TavilyConfig `toml:"engines_tavily"`
+	EnginesExa      ExaConfig    `toml:"engines_exa"`
+	EnginesJina     JinaConfig   `toml:"engines_jina"`
 }
 
 // BraveConfig holds Brave Search API configuration
@@ -51,6 +53,22 @@ type TavilyConfig struct {
 	SearchDepth       string `toml:"search_depth,omitempty"`
 	IncludeRawContent bool   `toml:"include_raw_content,omitempty"`
 	IncludeAnswer     bool   `toml:"include_answer,omitempty"`
+}
+
+// ExaConfig holds Exa backend config for API and MCP modes.
+type ExaConfig struct {
+	Mode       string `toml:"mode,omitempty"` // auto | api | mcp
+	APIKey     string `toml:"api_key,omitempty"`
+	MCPURL     string `toml:"mcp_url,omitempty"`
+	MCPTool    string `toml:"mcp_tool,omitempty"`
+	NumResults int    `toml:"num_results,omitempty"`
+}
+
+// JinaConfig holds Jina backend config.
+type JinaConfig struct {
+	APIKey       string `toml:"api_key,omitempty"`
+	AllowKeyless bool   `toml:"allow_keyless"`
+	BaseURL      string `toml:"base_url,omitempty"`
 }
 
 const (
@@ -108,6 +126,15 @@ func getDefaultConfig() *Config {
 		EnginesTavily: TavilyConfig{
 			SearchDepth: "basic",
 		},
+		EnginesExa: ExaConfig{
+			Mode:       "auto",
+			MCPTool:    "exa-web-search",
+			NumResults: 10,
+		},
+		EnginesJina: JinaConfig{
+			AllowKeyless: true,
+			BaseURL:      "https://s.jina.ai",
+		},
 	}
 }
 
@@ -127,6 +154,18 @@ func loadConfig() (*Config, error) {
 	config.SearxngURLs = deduplicateStrings(config.SearxngURLs)
 	if config.SearxngStrategy == "" {
 		config.SearxngStrategy = defaultSearxngStrategy
+	}
+	if config.EnginesExa.Mode == "" {
+		config.EnginesExa.Mode = "auto"
+	}
+	if config.EnginesExa.MCPTool == "" {
+		config.EnginesExa.MCPTool = "exa-web-search"
+	}
+	if config.EnginesExa.NumResults <= 0 {
+		config.EnginesExa.NumResults = 10
+	}
+	if config.EnginesJina.BaseURL == "" {
+		config.EnginesJina.BaseURL = "https://s.jina.ai"
 	}
 
 	return config, nil
