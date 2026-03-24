@@ -97,7 +97,7 @@ func TestTavilyBackend_Search_Success(t *testing.T) {
 		resp := tavilyResponse{
 			Query:        "golang",
 			Answer:       "Go is a programming language",
-			ResponseTime: "0.5",
+			ResponseTime: 0.5,
 			Results: []tavilyResult{
 				{Title: "Go Dev", URL: "https://go.dev", Content: "Official Go site", Score: 0.95},
 				{Title: "Go Wiki", URL: "https://wiki.com/go", Content: "Go language wiki", Score: 0.85},

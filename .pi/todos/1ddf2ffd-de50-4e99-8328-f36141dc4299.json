@@ -1,0 +1,29 @@
+{
+  "todos": [
+    {
+      "id": "8d29ba98",
+      "content": "Bump sx version for Exa/Jina backend integration release",
+      "status": "completed",
+      "priority": "high"
+    },
+    {
+      "id": "c3d9e806",
+      "content": "Commit sx repository changes",
+      "status": "completed",
+      "priority": "high"
+    },
+    {
+      "id": "2254b966",
+      "content": "Commit schemas repository schema update",
+      "status": "completed",
+      "priority": "high"
+    },
+    {
+      "id": "3fde2656",
+      "content": "Run final go test/build verification",
+      "status": "completed",
+      "priority": "medium"
+    }
+  ],
+  "updated_at": "2026-03-18T08:19:25.056Z"
+}

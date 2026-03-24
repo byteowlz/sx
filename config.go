@@ -71,6 +71,8 @@ type JinaConfig struct {
 	BaseURL      string `toml:"base_url,omitempty"`
 }
 
+
+
 const (
 	defaultSearxngURL      = "https://searxng.example.com"
 	defaultSearxngStrategy = "ordered"

@@ -65,7 +65,7 @@ type tavilyResponse struct {
 	Query        string          `json:"query"`
 	Answer       string          `json:"answer"`
 	Results      []tavilyResult  `json:"results"`
-	ResponseTime string          `json:"response_time"`
+	ResponseTime float64         `json:"response_time"`
 }
 
 type tavilyResult struct {
