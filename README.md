@@ -218,7 +218,7 @@ Flags:
       --debug                show debug output
   -e, --engines strings      SearXNG engines to use
       --engine string        search backend (searxng, brave, tavily, exa, jina)
-  -x, --expand               show full URLs in results
+  -x, --expand               show full URLs in results (URLs are shown by default)
   -F, --files                files category shortcut
   -j, --first                open first result in browser
   -h, --help                 help for sx

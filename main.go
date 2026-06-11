@@ -59,7 +59,7 @@ func main() {
 	rootCmd.Flags().BoolVarP(&searchOpts.Clean, "clean", "c", false, "omit empty and null values in JSON output")
 	rootCmd.Flags().StringSliceVarP(&searchOpts.SearxngEngines, "engines", "e", nil, "list of SearXNG engines to use for search")
 	rootCmd.Flags().StringVar(&searchOpts.ExplicitEngine, "engine", "", fmt.Sprintf("search backend to use (%s)", validEngineNames()))
-	rootCmd.Flags().BoolVarP(&searchOpts.Expand, "expand", "x", config.Expand, "show complete URL in search results")
+	rootCmd.Flags().BoolVarP(&searchOpts.Expand, "expand", "x", config.Expand, "show complete URL in search results (URLs are shown by default)")
 	rootCmd.Flags().BoolVarP(&searchOpts.First, "first", "j", false, "open the first result in web browser and exit")
 	rootCmd.Flags().StringVar(&config.HTTPMethod, "http-method", config.HTTPMethod, "HTTP method to use for search requests (GET or POST)")
 	rootCmd.Flags().Float64Var(&config.Timeout, "timeout", config.Timeout, "HTTP request timeout in seconds")

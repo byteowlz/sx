@@ -111,8 +111,8 @@ func printResults(results []SearchResult, count int, startAt int, expand bool, n
 			yellow.Sprintf("[%s]", domain),
 		)
 
-		// Show full URL if expand is enabled
-		if expand && result.URL != "" {
+		// Always show the full URL so agent/CLI consumers can copy exact links.
+		if result.URL != "" {
 			fmt.Printf("     %s\n", result.URL)
 		}
 
