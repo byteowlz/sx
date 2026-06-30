@@ -10,15 +10,7 @@ import (
 )
 
 func getStateDir() string {
-	stateHome := os.Getenv("XDG_STATE_HOME")
-	if stateHome == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return ""
-		}
-		stateHome = filepath.Join(homeDir, ".local", "state")
-	}
-	return filepath.Join(stateHome, "sx")
+	return appDir(baseState)
 }
 
 func getHistoryFile() string {

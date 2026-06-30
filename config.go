@@ -71,8 +71,6 @@ type JinaConfig struct {
 	BaseURL      string `toml:"base_url,omitempty"`
 }
 
-
-
 const (
 	defaultSearxngURL      = "https://searxng.example.com"
 	defaultSearxngStrategy = "ordered"
@@ -97,15 +95,7 @@ var defaultURLHandlers = map[string]string{
 }
 
 func getConfigDir() string {
-	configHome := os.Getenv("XDG_CONFIG_HOME")
-	if configHome == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return ""
-		}
-		configHome = filepath.Join(homeDir, ".config")
-	}
-	return filepath.Join(configHome, "sx")
+	return appDir(baseConfig)
 }
 
 func getDefaultConfig() *Config {
