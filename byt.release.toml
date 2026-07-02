@@ -1,0 +1,27 @@
+# Release config consumed by `byt release` (ADR-0021).
+# Go app: byt cross-compiles with the Go toolchain in the container for linux
+# and natively on the macOS runner, then combines + publishes.
+#
+# NOTE: the legacy GoReleaser flow also published a source AUR package
+# (`sx-search`). The uniform pipeline ships the prebuilt `sx-search-bin` only.
+[release]
+name = "sx"
+lang = "go"
+bins = ["sx"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+
+[release.homebrew]
+formula = "sx"
+
+[release.aur]
+pkgname = "sx-search-bin"
+pkgdesc = "Multi-engine web search from the command line"
+license = "MIT"
+url = "https://github.com/byteowlz/sx"
+provides = ["sx"]
+conflicts = ["sx", "sx-search"]
