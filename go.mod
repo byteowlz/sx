@@ -5,13 +5,13 @@ go 1.25.0
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
+	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/fatih/color v1.18.0
 	github.com/go-shiori/go-readability v0.0.0-20250217085726-9f5bf5ca7612
 	github.com/spf13/cobra v1.10.1
 )
 
 require (
-	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect

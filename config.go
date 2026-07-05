@@ -115,6 +115,11 @@ func getDefaultConfig() *Config {
 		HistoryEnabled:  defaultHistoryEnabled,
 		MaxHistory:      defaultMaxHistory,
 		Engine:          "searxng",
+		// Keyless engines: searches keep working with zero configuration.
+		// brave-web first: Bing serves decoy results to bot-classified
+		// clients, while Brave's HTML results have proven trustworthy.
+		// Overridden by any fallback_engines value in the config file.
+		FallbackEngines: []string{"brave-web", "bing"},
 		EnginesTavily: TavilyConfig{
 			SearchDepth: "basic",
 		},

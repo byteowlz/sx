@@ -4,15 +4,19 @@ Multi-engine web search from the command line
 
 `sx` is a CLI tool for searching the web from your terminal. It supports
 multiple search backends -- [SearXNG](https://github.com/searxng/searxng)
-(self-hosted), [Exa](https://exa.ai/), [Jina](https://jina.ai/),
-[Brave Search](https://api.search.brave.com/) and [Tavily](https://tavily.com/)
--- with automatic fallback when the primary engine is unreachable.
+(self-hosted), keyless Brave Search and Bing (built-in HTML scrapers, no
+account needed), [Exa](https://exa.ai/), [Jina](https://jina.ai/),
+[Brave Search API](https://api.search.brave.com/) and
+[Tavily](https://tavily.com/) -- with automatic fallback when the primary
+engine is unreachable or returns no results. Searches work out of the box
+with zero configuration and no API keys.
 
 This is a Go port of the original Python [searxngr](https://github.com/scross01/searxngr) project, extended with multi-engine support.
 
 ## Key Features
 
 - **Multiple search backends** - SearXNG, Exa, Jina, Brave Search, Tavily with automatic fallback
+- **Keyless fallback engines** - built-in `brave-web` and `bing` scrapers keep searches working with no API keys and no SearXNG instance
 - **Multi-instance SearXNG failover** - ordered or parallel-fastest strategy
 - **Terminal-based interface** with colorized output
 - **Non-interactive by default** for scripting; `-i` for interactive mode
@@ -51,11 +55,12 @@ Created automatically on first run.
 ```toml
 # sx configuration file
 
-# Primary search engine (searxng, brave, tavily, exa, jina)
+# Primary search engine (searxng, bing, brave-web, brave, tavily, exa, jina)
 engine = "searxng"
 
-# Fallback engines tried in order if primary fails
-fallback_engines = ["exa", "jina", "brave", "tavily"]
+# Fallback engines tried in order if primary fails or returns no results.
+# Default: ["brave-web", "bing"] (keyless, no configuration needed)
+fallback_engines = ["brave-web", "bing", "tavily", "exa", "jina"]
 
 # SearXNG instance settings
 searxng_url = "https://searxng.example.com"
@@ -256,15 +261,24 @@ Flags:
 | Backend | Auth | Free Tier | Best For |
 |---------|------|-----------|----------|
 | **SearXNG** | None (self-hosted) | Unlimited | Privacy, full control |
+| **brave-web** | None (HTML scraper) | Best-effort | Keyless fallback, works out of the box |
+| **bing** | None (HTML scraper) | Best-effort | Keyless fallback; rejects Bing's bot-decoy result pages |
 | **Exa** | API key or MCP | Varies by plan/MCP setup | Research-focused search, MCP workflows |
-| **Jina** | Optional API key | Keyless best-effort | Fallback without mandatory key |
-| **Brave** | API key | 2,000 req/month | Fallback, quick setup |
+| **Jina** | API key (keyless access was discontinued upstream) | -- | LLM-oriented content |
+| **Brave** | API key | 2,000 req/month | Official API, quick setup |
 | **Tavily** | API key | 1,000 credits/month | LLM workflows, rich content |
 
 ## Troubleshooting
 
 **Error: all backends failed**
 Check your primary engine URL and API keys. Use `--debug` for details.
+
+**Error: no results, upstream engines unresponsive**
+Your SearXNG instance is reachable, but its upstream engines are rate limiting or
+blocking it (e.g. `Suspended: too many requests`, `Suspended: CAPTCHA`). sx treats
+this as a failure and tries the next `searxng_urls` instance and then your
+`fallback_engines`. To reduce it, enable more upstream engines in SearXNG's
+`settings.yml` or add additional SearXNG instances to `searxng_urls`.
 
 **Error: HTTP 429 Too Many Requests**
 SearXNG rate limiting. Update server limiter settings or use a fallback engine.

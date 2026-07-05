@@ -102,6 +102,10 @@ func initBackendManager(config *Config) *backends.Manager {
 	)
 	mgr.Register(exa)
 
+	// Register keyless scraper backends (no API key or configuration needed)
+	mgr.Register(backends.NewBingBackend(time.Duration(config.Timeout) * time.Second))
+	mgr.Register(backends.NewBraveWebBackend(time.Duration(config.Timeout) * time.Second))
+
 	// Register Jina backend (keyed or keyless)
 	jinaAPIKey := config.EnginesJina.APIKey
 	if envKey := os.Getenv("JINA_API_KEY"); envKey != "" {
@@ -209,5 +213,5 @@ func expandTimeRange(timeRange string) string {
 
 // validEngineNames returns all valid engine names for help text
 func validEngineNames() string {
-	return strings.Join([]string{"searxng", "brave", "tavily", "exa", "jina"}, ", ")
+	return strings.Join([]string{"searxng", "bing", "brave-web", "brave", "tavily", "exa", "jina"}, ", ")
 }
