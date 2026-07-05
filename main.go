@@ -15,7 +15,9 @@ import (
 	"sx/backends"
 )
 
-const version = "2.4.0"
+// version is overridden at release time via -ldflags "-X main.version=...".
+// It must be a var (not a const) for the linker to inject the value.
+var version = "dev"
 
 var (
 	config     *Config
@@ -321,7 +323,7 @@ func runSearch(cmd *cobra.Command, args []string) {
 		}
 
 		if len(allResults) == 0 {
-			fmt.Println("No results found or an error occurred during the search.")
+			fmt.Println("No results found.")
 			return
 		}
 
