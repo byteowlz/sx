@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -79,6 +80,86 @@ func TestSearxngBackend_Search_GET(t *testing.T) {
 	}
 	if results[0].Title != "Go Dev" {
 		t.Errorf("expected 'Go Dev', got %q", results[0].Title)
+	}
+}
+
+func TestSearxngBackend_Search_EmptyWithUnresponsiveEngines(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"results": [], "unresponsive_engines": [["brave", "Suspended: too many requests"], ["startpage", "Suspended: CAPTCHA"]]}`))
+	}))
+	defer server.Close()
+
+	b := NewSearxngBackend(server.URL, "", "", "GET", 10*time.Second, false, false)
+	_, err := b.Search(SearchOptions{Query: "golang"})
+	if err == nil {
+		t.Fatal("expected degraded-instance error for empty results with unresponsive engines")
+	}
+	be, ok := err.(*BackendError)
+	if !ok {
+		t.Fatalf("expected *BackendError, got %T", err)
+	}
+	if be.Code != ErrCodeDegraded {
+		t.Errorf("expected ErrCodeDegraded, got %d", be.Code)
+	}
+	for _, want := range []string{"brave (Suspended: too many requests)", "startpage (Suspended: CAPTCHA)"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error should mention %q, got: %v", want, err)
+		}
+	}
+}
+
+func TestSearxngBackend_Search_EmptyWithoutUnresponsiveEngines(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"results": [], "unresponsive_engines": []}`))
+	}))
+	defer server.Close()
+
+	b := NewSearxngBackend(server.URL, "", "", "GET", 10*time.Second, false, false)
+	results, err := b.Search(SearchOptions{Query: "golang"})
+	if err != nil {
+		t.Fatalf("genuinely empty result set should not error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected no results, got %v", results)
+	}
+}
+
+func TestSearxngBackend_Search_EmptyLaterPageWithUnresponsiveEngines(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"results": [], "unresponsive_engines": [["brave", "Suspended: too many requests"]]}`))
+	}))
+	defer server.Close()
+
+	b := NewSearxngBackend(server.URL, "", "", "GET", 10*time.Second, false, false)
+	results, err := b.Search(SearchOptions{Query: "golang", PageNo: 3})
+	if err != nil {
+		t.Fatalf("empty later page should not error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected no results, got %v", results)
+	}
+}
+
+func TestFormatUnresponsiveEngines(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"empty field", ``, ""},
+		{"empty list", `[]`, ""},
+		{"name and reason", `[["brave", "Suspended: too many requests"]]`, "brave (Suspended: too many requests)"},
+		{"name only", `[["brave"]]`, "brave"},
+		{"extra fields", `[["brave", "rate limited", true]]`, "brave (rate limited, true)"},
+		{"unexpected shape", `{"brave": "down"}`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatUnresponsiveEngines(json.RawMessage(tt.raw))
+			if got != tt.want {
+				t.Errorf("formatUnresponsiveEngines(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
 	}
 }
 

@@ -86,9 +86,10 @@ func (e *BackendError) Unwrap() error {
 
 // Error codes for backend failures
 const (
-	ErrCodeUnavailable = iota // Backend not configured
-	ErrCodeNetwork            // Network/connectivity issue
-	ErrCodeAuth               // Authentication failure
-	ErrCodeRateLimit          // Rate limited
-	ErrCodeInvalidResponse    // Invalid/malformed response
+	ErrCodeUnavailable     = iota // Backend not configured
+	ErrCodeNetwork                // Network/connectivity issue
+	ErrCodeAuth                   // Authentication failure
+	ErrCodeRateLimit              // Rate limited
+	ErrCodeInvalidResponse        // Invalid/malformed response
+	ErrCodeDegraded               // Backend reachable but its upstream sources are failing
 )

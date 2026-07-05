@@ -14,14 +14,14 @@ import (
 
 // SearxngBackend implements SearchBackend for SearXNG instances
 type SearxngBackend struct {
-	BaseURL    string
-	Username   string
-	Password   string
-	HTTPMethod string
-	Timeout    time.Duration
+	BaseURL     string
+	Username    string
+	Password    string
+	HTTPMethod  string
+	Timeout     time.Duration
 	NoVerifySSL bool
 	NoUserAgent bool
-	client     *http.Client
+	client      *http.Client
 }
 
 // NewSearxngBackend creates a new SearXNG backend
@@ -59,13 +59,13 @@ func (s *SearxngBackend) IsAvailable() bool {
 	if s.BaseURL == "" {
 		return false
 	}
-	
+
 	// Try a simple health check or just validate URL is parseable
 	u, err := url.Parse(s.BaseURL)
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -156,6 +156,19 @@ func (s *SearxngBackend) Search(opts SearchOptions) ([]SearchResult, error) {
 		return nil, s.wrapError(fmt.Errorf("failed to parse JSON: %v", err), ErrCodeInvalidResponse)
 	}
 
+	// An empty first page with unresponsive upstream engines means the
+	// instance is degraded (rate limited, CAPTCHA-blocked, ...), not that
+	// the query has no results. Surface it as an error so fallbacks run.
+	if len(searchResp.Results) == 0 && opts.PageNo <= 1 {
+		if degraded := formatUnresponsiveEngines(searchResp.UnresponsiveEngines); degraded != "" {
+			return nil, &BackendError{
+				Backend: s.Name(),
+				Err:     fmt.Errorf("no results, upstream engines unresponsive: %s", degraded),
+				Code:    ErrCodeDegraded,
+			}
+		}
+	}
+
 	// Transform SearxngResponse to []SearchResult
 	results := make([]SearchResult, len(searchResp.Results))
 	for i, r := range searchResp.Results {
@@ -214,10 +227,40 @@ func (s *SearxngBackend) wrapError(err error, code int) *BackendError {
 
 // Internal response type for parsing SearXNG JSON
 type SearxngResponse struct {
-	Results []searxngResult `json:"results"`
+	Results             []searxngResult `json:"results"`
+	UnresponsiveEngines json.RawMessage `json:"unresponsive_engines"`
 }
 
 type searxngResult SearchResult
+
+// formatUnresponsiveEngines renders SearXNG's unresponsive_engines field
+// (a list of [engine, reason, ...] tuples) as "engine (reason), ...".
+// The field's shape varies across SearXNG versions, so parse leniently
+// and return "" if it can't be decoded.
+func formatUnresponsiveEngines(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var entries [][]any
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return ""
+	}
+	parts := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		fields := make([]string, 0, len(entry))
+		for _, v := range entry {
+			fields = append(fields, fmt.Sprintf("%v", v))
+		}
+		switch len(fields) {
+		case 0:
+		case 1:
+			parts = append(parts, fields[0])
+		default:
+			parts = append(parts, fmt.Sprintf("%s (%s)", fields[0], strings.Join(fields[1:], ", ")))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
 
 var safeSearchOptions = map[string]int{
 	"none":     0,

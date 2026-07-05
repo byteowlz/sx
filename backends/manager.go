@@ -47,8 +47,13 @@ func (m *Manager) SetFallbacks(names []string) error {
 	return nil
 }
 
-// Search performs a search using the primary backend, falling back to alternatives
-// Returns the results, the backend name that succeeded, and any error
+// Search performs a search using the primary backend, falling back to alternatives.
+// On the first page, an empty (but successful) response also triggers fallbacks:
+// engines commonly report HTTP 200 with zero results when they are rate limited
+// or blocked, and a genuinely result-less query is only reported as such once
+// every configured backend agrees. Later pages return empty without fallback so
+// pagination doesn't mix results from different engines.
+// Returns the results, the backend name that succeeded, and any error.
 func (m *Manager) Search(opts SearchOptions) ([]SearchResult, string, error) {
 	if m.primary == nil {
 		return nil, "", fmt.Errorf("no primary backend configured")
@@ -56,25 +61,47 @@ func (m *Manager) Search(opts SearchOptions) ([]SearchResult, string, error) {
 
 	// Try primary backend first
 	results, err := m.primary.Search(opts)
-	if err == nil {
+	if err == nil && (len(results) > 0 || opts.PageNo > 1) {
 		return results, m.primary.Name(), nil
 	}
 
-	// Primary failed - collect errors
-	errors := []string{err.Error()}
+	// Primary failed or returned nothing - collect errors and try fallbacks
+	var errors []string
+	emptyFrom := ""
+	if err == nil {
+		emptyFrom = m.primary.Name()
+		errors = append(errors, fmt.Sprintf("%s: returned no results", m.primary.Name()))
+	} else {
+		errors = append(errors, err.Error())
+	}
 
-	// Try fallbacks in order
 	for _, fb := range m.fallbacks {
+		if fb.Name() == m.primary.Name() {
+			continue
+		}
 		if !fb.IsAvailable() {
 			errors = append(errors, fmt.Sprintf("%s: not configured", fb.Name()))
 			continue
 		}
 
 		results, fbErr := fb.Search(opts)
-		if fbErr == nil {
+		if fbErr == nil && len(results) > 0 {
 			return results, fb.Name(), nil
 		}
-		errors = append(errors, fbErr.Error())
+		if fbErr == nil {
+			if emptyFrom == "" {
+				emptyFrom = fb.Name()
+			}
+			errors = append(errors, fmt.Sprintf("%s: returned no results", fb.Name()))
+		} else {
+			errors = append(errors, fbErr.Error())
+		}
+	}
+
+	// At least one backend answered successfully with zero results:
+	// treat the query as having no results rather than failing.
+	if emptyFrom != "" {
+		return nil, emptyFrom, nil
 	}
 
 	return nil, "", fmt.Errorf("all backends failed:\n  %s", strings.Join(errors, "\n  "))

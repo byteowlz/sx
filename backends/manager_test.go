@@ -14,8 +14,8 @@ type mockBackend struct {
 	err       error
 }
 
-func (m *mockBackend) Name() string          { return m.name }
-func (m *mockBackend) IsAvailable() bool     { return m.available }
+func (m *mockBackend) Name() string      { return m.name }
+func (m *mockBackend) IsAvailable() bool { return m.available }
 func (m *mockBackend) Search(opts SearchOptions) ([]SearchResult, error) {
 	if m.err != nil {
 		return nil, m.err
@@ -125,6 +125,106 @@ func TestManager_Search_FallbackOnPrimaryFailure(t *testing.T) {
 
 	if len(results) != 1 || results[0].Title != "Fallback Result" {
 		t.Errorf("unexpected results: %v", results)
+	}
+}
+
+func TestManager_Search_FallbackOnEmptyPrimary(t *testing.T) {
+	mgr := NewManager()
+
+	primary := &mockBackend{name: "primary", available: true, results: nil}
+	fallback := &mockBackend{
+		name:      "fallback",
+		available: true,
+		results:   []SearchResult{{Title: "Fallback Result", URL: "https://fallback.com"}},
+	}
+
+	mgr.Register(primary)
+	mgr.Register(fallback)
+	mgr.SetPrimary("primary")
+	mgr.SetFallbacks([]string{"fallback"})
+
+	results, engine, err := mgr.Search(SearchOptions{Query: "test"})
+	if err != nil {
+		t.Fatalf("Search should have fallen back on empty results: %v", err)
+	}
+	if engine != "fallback" {
+		t.Errorf("expected engine 'fallback', got %q", engine)
+	}
+	if len(results) != 1 || results[0].Title != "Fallback Result" {
+		t.Errorf("unexpected results: %v", results)
+	}
+}
+
+func TestManager_Search_AllBackendsEmpty(t *testing.T) {
+	mgr := NewManager()
+
+	primary := &mockBackend{name: "primary", available: true, results: nil}
+	fallback := &mockBackend{name: "fallback", available: true, results: nil}
+
+	mgr.Register(primary)
+	mgr.Register(fallback)
+	mgr.SetPrimary("primary")
+	mgr.SetFallbacks([]string{"fallback"})
+
+	results, engine, err := mgr.Search(SearchOptions{Query: "test"})
+	if err != nil {
+		t.Fatalf("empty results everywhere should not be an error: %v", err)
+	}
+	if engine != "primary" {
+		t.Errorf("expected engine 'primary', got %q", engine)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected no results, got %v", results)
+	}
+}
+
+func TestManager_Search_EmptyErroringPrimaryFallsBackToEmptyFallback(t *testing.T) {
+	mgr := NewManager()
+
+	primary := &mockBackend{name: "primary", available: true, err: fmt.Errorf("primary down")}
+	fallback := &mockBackend{name: "fallback", available: true, results: nil}
+
+	mgr.Register(primary)
+	mgr.Register(fallback)
+	mgr.SetPrimary("primary")
+	mgr.SetFallbacks([]string{"fallback"})
+
+	results, engine, err := mgr.Search(SearchOptions{Query: "test"})
+	if err != nil {
+		t.Fatalf("fallback succeeded with zero results, should not error: %v", err)
+	}
+	if engine != "fallback" {
+		t.Errorf("expected engine 'fallback', got %q", engine)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected no results, got %v", results)
+	}
+}
+
+func TestManager_Search_NoFallbackOnEmptyLaterPage(t *testing.T) {
+	mgr := NewManager()
+
+	primary := &mockBackend{name: "primary", available: true, results: nil}
+	fallback := &mockBackend{
+		name:      "fallback",
+		available: true,
+		results:   []SearchResult{{Title: "Fallback Result"}},
+	}
+
+	mgr.Register(primary)
+	mgr.Register(fallback)
+	mgr.SetPrimary("primary")
+	mgr.SetFallbacks([]string{"fallback"})
+
+	results, engine, err := mgr.Search(SearchOptions{Query: "test", PageNo: 2})
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
+	}
+	if engine != "primary" {
+		t.Errorf("later pages must not switch engines, expected 'primary', got %q", engine)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected empty page 2, got %v", results)
 	}
 }
 
