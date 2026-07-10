@@ -98,11 +98,7 @@ func (m *MultiSearxngBackend) searchOrdered(instances []*SearxngBackend, opts Se
 		errs = append(errs, err)
 	}
 
-	return nil, &BackendError{
-		Backend: m.Name(),
-		Err:     fmt.Errorf("all SearXNG instances failed (%d)", len(errs)),
-		Code:    ErrCodeNetwork,
-	}
+	return nil, m.allInstancesFailed(errs)
 }
 
 func (m *MultiSearxngBackend) searchParallelFastest(instances []*SearxngBackend, opts SearchOptions) ([]SearchResult, error) {
@@ -130,9 +126,19 @@ func (m *MultiSearxngBackend) searchParallelFastest(instances []*SearxngBackend,
 		errs = append(errs, res.err)
 	}
 
-	return nil, &BackendError{
+	return nil, m.allInstancesFailed(errs)
+}
+
+// allInstancesFailed builds the aggregate error, preserving each instance's
+// failure reason so users can see why (degraded, unreachable, ...).
+func (m *MultiSearxngBackend) allInstancesFailed(errs []error) *BackendError {
+	details := make([]string, len(errs))
+	for i, e := range errs {
+		details[i] = e.Error()
+	}
+	return &BackendError{
 		Backend: m.Name(),
-		Err:     fmt.Errorf("all SearXNG instances failed (%d)", len(errs)),
+		Err:     fmt.Errorf("all %d SearXNG instance(s) failed: %s", len(errs), strings.Join(details, "; ")),
 		Code:    ErrCodeNetwork,
 	}
 }
