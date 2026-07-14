@@ -246,7 +246,7 @@ func createConfigFile(configDir, configFile string) error {
 	defer file.Close()
 
 	// Write schema reference and header
-	_, err = file.WriteString(`"$schema" = "https://raw.githubusercontent.com/byteowlz/schemas/refs/heads/main/sx/sx.config.schema.json"
+	_, err = file.WriteString(`#:schema https://raw.githubusercontent.com/byteowlz/schemas/refs/heads/main/sx/sx.config.schema.json
 
 # sx configuration file
 `)
