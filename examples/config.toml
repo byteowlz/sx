@@ -1,4 +1,4 @@
-"$schema" = "https://raw.githubusercontent.com/byteowlz/schemas/refs/heads/main/sx/sx.config.schema.json"
+#:schema https://raw.githubusercontent.com/byteowlz/schemas/refs/heads/main/sx/sx.config.schema.json
 
 # sx configuration file
 # Copy to $XDG_CONFIG_HOME/sx/config.toml (typically ~/.config/sx/config.toml)
